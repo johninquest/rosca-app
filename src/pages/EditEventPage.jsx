@@ -13,10 +13,13 @@ export default function EditEventPage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    let active = true
     pb.collection('mocotr_events').getOne(eventId).then((record) => {
+      if (!active) return
       if (record.owner !== user?.uid) { setError('Not authorized.'); return }
       setEvent(record)
-    }).catch(() => setError('Event not found.'))
+    }).catch(() => { if (active) setError('Event not found.') })
+    return () => { active = false }
   }, [eventId, user])
 
   async function handleSubmit(data) {
