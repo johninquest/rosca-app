@@ -51,8 +51,8 @@ export default function EventDetailPage() {
       where('eventId', '==', eventId),
       orderBy('date', 'desc')
     )
-    const unsub = onSnapshot(q, (snap) => {
-      setContributions(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
+      setContributions(snap.docs.map((d) => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites })))
     }, () => setContributions([]))
     return unsub
   }, [eventId])
@@ -304,7 +304,14 @@ export default function EventDetailPage() {
                 <li key={c.id} className="px-5 py-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-medium text-[#1A1A1A] truncate">{c.contributorName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-[#1A1A1A] truncate">{c.contributorName}</p>
+                        {c._pending && (
+                          <span className="shrink-0 text-[10px] font-medium text-[#555555] border border-[#E0E0E0] rounded-full px-1.5 py-0.5 leading-none">
+                            syncing…
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xl font-bold text-[#1A1A1A] mt-0.5">
                         {formatAmount(c.amount, event.currency)}
                       </p>

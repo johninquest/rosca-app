@@ -9,10 +9,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined) // undefined = loading, null = signed out
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Upsert user record on every sign-in
-        await setDoc(
+        // Fire-and-forget — never await Firestore inside onAuthStateChanged
+        // when using persistentLocalCache, as it can hang before IndexedDB is ready
+        setDoc(
           doc(db, 'users', firebaseUser.uid),
           {
             displayName: firebaseUser.displayName,
@@ -21,9 +22,9 @@ export function AuthProvider({ children }) {
             updatedAt: serverTimestamp(),
           },
           { merge: true }
-        )
+        ).catch(() => {})
       }
-      setUser(firebaseUser ?? null)
+      setUser(firebaseUser ?? null) // always called now
     })
     return unsubscribe
   }, [])
