@@ -51,7 +51,7 @@ function TotalCollected({ eventId, currency, targetAmount }) {
 
     const fetchTotal = async () => {
       try {
-        const records = await pb.collection('contributions').getFullList({
+        const records = await pb.collection('mocotr_contributions').getFullList({
           filter: `event = "${eventId}"`,
           fields: 'amount',
         })
@@ -63,7 +63,7 @@ function TotalCollected({ eventId, currency, targetAmount }) {
 
     fetchTotal()
 
-    pb.collection('contributions').subscribe('*', (e) => {
+    pb.collection('mocotr_contributions').subscribe('*', (e) => {
       if (e.record.event === eventId) fetchTotal()
     }).then((u) => { if (active) unsub = u; else u() })
 
@@ -109,7 +109,7 @@ export default function DashboardPage() {
 
     const loadEvents = async () => {
       try {
-        const records = await pb.collection('events').getFullList({
+        const records = await pb.collection('mocotr_events').getFullList({
           filter: `owner = "${user.uid}"`,
           sort: '-created',
         })
@@ -121,7 +121,7 @@ export default function DashboardPage() {
 
     loadEvents()
 
-    pb.collection('events').subscribe('*', (e) => {
+    pb.collection('mocotr_events').subscribe('*', (e) => {
       if (e.record.owner === user.uid || e.action === 'delete') loadEvents()
     }).then((u) => { if (active) unsub = u; else u() })
 

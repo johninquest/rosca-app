@@ -21,6 +21,7 @@ export default function EventDetailPage() {
 
   // Dialogs
   const [showDeleteEvent, setShowDeleteEvent] = useState(false)
+  const [showCloseEvent, setShowCloseEvent] = useState(false)
   const [showAddContrib, setShowAddContrib] = useState(false)
   const [editingContrib, setEditingContrib] = useState(null)
   const [deletingContribId, setDeletingContribId] = useState(null)
@@ -32,11 +33,11 @@ export default function EventDetailPage() {
     let active = true
     let unsub
 
-    pb.collection('events').getOne(eventId)
+    pb.collection('mocotr_events').getOne(eventId)
       .then((record) => { if (active) setEvent(record) })
       .catch(() => { if (active) setEventError('Event not found.') })
 
-    pb.collection('events').subscribe(eventId, (e) => {
+    pb.collection('mocotr_events').subscribe(eventId, (e) => {
       if (e.action === 'delete') { navigate('/dashboard'); return }
       if (active) setEvent(e.record)
     }).then((u) => { if (active) unsub = u; else u() })
@@ -54,7 +55,7 @@ export default function EventDetailPage() {
 
     const loadContributions = async () => {
       try {
-        const records = await pb.collection('contributions').getFullList({
+        const records = await pb.collection('mocotr_contributions').getFullList({
           filter: `event = "${eventId}"`,
           sort: '-date',
         })
@@ -66,7 +67,7 @@ export default function EventDetailPage() {
 
     loadContributions()
 
-    pb.collection('contributions').subscribe('*', (e) => {
+    pb.collection('mocotr_contributions').subscribe('*', (e) => {
       if (e.record.event === eventId) loadContributions()
     }).then((u) => { if (active) unsub = u; else u() })
 
@@ -87,7 +88,7 @@ export default function EventDetailPage() {
 
   // --- Event actions ---
   async function handleToggleStatus() {
-    await pb.collection('events').update(eventId, {
+    await pb.collection('mocotr_events').update(eventId, {
       status: event.status === 'open' ? 'closed' : 'open',
     })
   }
@@ -95,15 +96,15 @@ export default function EventDetailPage() {
   async function handleDeleteEvent() {
     // Cascade delete all contributions first
     if (contributions && contributions.length > 0) {
-      await Promise.all(contributions.map((c) => pb.collection('contributions').delete(c.id)))
+      await Promise.all(contributions.map((c) => pb.collection('mocotr_contributions').delete(c.id)))
     }
-    await pb.collection('events').delete(eventId)
+    await pb.collection('mocotr_events').delete(eventId)
     navigate('/dashboard')
   }
 
   // --- Contribution actions ---
   async function handleAddContribution(data) {
-    await pb.collection('contributions').create({
+    await pb.collection('mocotr_contributions').create({
       event: eventId,
       contributorName: data.contributorName.trim(),
       amount: data.amount,
@@ -114,7 +115,7 @@ export default function EventDetailPage() {
   }
 
   async function handleEditContribution(data) {
-    await pb.collection('contributions').update(editingContrib.id, {
+    await pb.collection('mocotr_contributions').update(editingContrib.id, {
       contributorName: data.contributorName.trim(),
       amount: data.amount,
       date: data.date,
@@ -124,7 +125,7 @@ export default function EventDetailPage() {
   }
 
   async function handleDeleteContribution() {
-    await pb.collection('contributions').delete(deletingContribId)
+    await pb.collection('mocotr_contributions').delete(deletingContribId)
     setDeletingContribId(null)
   }
 
@@ -182,10 +183,10 @@ export default function EventDetailPage() {
           )}
 
           <div className="mt-4 space-y-1 text-sm text-[#555555]">
-            <div className="flex gap-2">
+           {/*  <div className="flex gap-2">
               <span className="w-24 shrink-0">Currency</span>
               <span className="font-medium text-[#1A1A1A]">{event.currency}</span>
-            </div>
+            </div> */}
             {hasTarget && (
               <div className="flex gap-2">
                 <span className="w-24 shrink-0">Target</span>
@@ -260,7 +261,7 @@ export default function EventDetailPage() {
                 </Link>
                 <button
                   type="button"
-                  onClick={handleToggleStatus}
+                  onClick={event.status === 'open' ? () => setShowCloseEvent(true) : handleToggleStatus}
                   className="px-3 py-2 border border-[#E0E0E0] rounded-md text-sm font-medium text-[#1A1A1A] hover:bg-[#F9F9F9] transition-colors"
                 >
                   {event.status === 'open' ? 'Close Event' : 'Reopen Event'}
@@ -366,6 +367,15 @@ export default function EventDetailPage() {
           onCancel={() => setEditingContrib(null)}
         />
       )}
+
+      {/* Close event confirmation */}
+      <ConfirmDialog
+        open={showCloseEvent}
+        title="Close this event?"
+        message="No new contributions will be accepted once the event is closed."
+        onConfirm={async () => { await handleToggleStatus(); setShowCloseEvent(false) }}
+        onCancel={() => setShowCloseEvent(false)}
+      />
 
       {/* Delete event confirmation */}
       <ConfirmDialog

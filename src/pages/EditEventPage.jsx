@@ -13,14 +13,14 @@ export default function EditEventPage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    pb.collection('events').getOne(eventId).then((record) => {
+    pb.collection('mocotr_events').getOne(eventId).then((record) => {
       if (record.owner !== user?.uid) { setError('Not authorized.'); return }
       setEvent(record)
     }).catch(() => setError('Event not found.'))
   }, [eventId, user])
 
   async function handleSubmit(data) {
-    await pb.collection('events').update(eventId, {
+    await pb.collection('mocotr_events').update(eventId, {
       title: data.title.trim(),
       description: data.description?.trim() || '',
       currency: data.currency,

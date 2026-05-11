@@ -9,7 +9,7 @@ export default function CreateEventPage() {
   const navigate = useNavigate()
 
   async function handleSubmit(data) {
-    const record = await pb.collection('events').create({
+    const record = await pb.collection('mocotr_events').create({
       title: data.title.trim(),
       description: data.description?.trim() || '',
       currency: data.currency,
