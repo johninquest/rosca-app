@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import pb from '../lib/pocketbase'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import { formatAmount } from '../utils/format'
 
 function EventCard({ event }) {
-  const { id, title, currency, targetAmount, status, createdAt, deadline } = event
+  const { id, title, currency, targetAmount, status, created, deadline } = event
   const hasTarget = targetAmount != null && targetAmount > 0
 
   return (
@@ -33,11 +32,9 @@ function EventCard({ event }) {
       <div className="mt-3 flex items-center gap-3 text-xs text-[#555555]">
         <span>{currency}</span>
         {deadline && <span>Deadline: {deadline}</span>}
-        {createdAt && (
+        {created && (
           <span className="ml-auto">
-            {createdAt.toDate
-              ? createdAt.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-              : 'N/A'}
+            {new Date(created).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
         )}
       </div>
@@ -49,16 +46,31 @@ function TotalCollected({ eventId, currency, targetAmount }) {
   const [total, setTotal] = useState(undefined)
 
   useEffect(() => {
-    const q = query(collection(db, 'contributions'), where('eventId', '==', eventId))
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const sum = snap.docs.reduce((acc, d) => acc + (d.data().amount ?? 0), 0)
-        setTotal(sum)
-      },
-      () => setTotal(null)
-    )
-    return unsub
+    let active = true
+    let unsub
+
+    const fetchTotal = async () => {
+      try {
+        const records = await pb.collection('contributions').getFullList({
+          filter: `event = "${eventId}"`,
+          fields: 'amount',
+        })
+        if (active) setTotal(records.reduce((acc, r) => acc + (r.amount ?? 0), 0))
+      } catch {
+        if (active) setTotal(null)
+      }
+    }
+
+    fetchTotal()
+
+    pb.collection('contributions').subscribe('*', (e) => {
+      if (e.record.event === eventId) fetchTotal()
+    }).then((u) => { if (active) unsub = u; else u() })
+
+    return () => {
+      active = false
+      unsub?.()
+    }
   }, [eventId])
 
   const hasTarget = targetAmount != null && targetAmount > 0
@@ -92,15 +104,31 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user) return
-    const q = query(
-      collection(db, 'events'),
-      where('ownerId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    )
-    const unsub = onSnapshot(q, (snap) => {
-      setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    }, () => setEvents([]))
-    return unsub
+    let active = true
+    let unsub
+
+    const loadEvents = async () => {
+      try {
+        const records = await pb.collection('events').getFullList({
+          filter: `owner = "${user.uid}"`,
+          sort: '-created',
+        })
+        if (active) setEvents(records)
+      } catch {
+        if (active) setEvents([])
+      }
+    }
+
+    loadEvents()
+
+    pb.collection('events').subscribe('*', (e) => {
+      if (e.record.owner === user.uid || e.action === 'delete') loadEvents()
+    }).then((u) => { if (active) unsub = u; else u() })
+
+    return () => {
+      active = false
+      unsub?.()
+    }
   }, [user])
 
   return (

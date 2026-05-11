@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import pb from '../lib/pocketbase'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import EventForm from '../components/EventForm'
@@ -10,18 +9,16 @@ export default function CreateEventPage() {
   const navigate = useNavigate()
 
   async function handleSubmit(data) {
-    const doc = await addDoc(collection(db, 'events'), {
+    const record = await pb.collection('events').create({
       title: data.title.trim(),
       description: data.description?.trim() || '',
       currency: data.currency,
       targetAmount: data.targetAmount || null,
       deadline: data.deadline || null,
       status: 'open',
-      ownerId: user.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      owner: user.uid,
     })
-    navigate(`/event/${doc.id}`)
+    navigate(`/event/${record.id}`)
   }
 
   return (

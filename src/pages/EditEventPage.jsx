@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import pb from '../lib/pocketbase'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import EventForm from '../components/EventForm'
@@ -14,22 +13,19 @@ export default function EditEventPage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    getDoc(doc(db, 'events', eventId)).then((snap) => {
-      if (!snap.exists()) { setError('Event not found.'); return }
-      const data = snap.data()
-      if (data.ownerId !== user?.uid) { setError('Not authorized.'); return }
-      setEvent({ id: snap.id, ...data })
-    }).catch(() => setError('Failed to load event.'))
+    pb.collection('events').getOne(eventId).then((record) => {
+      if (record.owner !== user?.uid) { setError('Not authorized.'); return }
+      setEvent(record)
+    }).catch(() => setError('Event not found.'))
   }, [eventId, user])
 
   async function handleSubmit(data) {
-    await updateDoc(doc(db, 'events', eventId), {
+    await pb.collection('events').update(eventId, {
       title: data.title.trim(),
       description: data.description?.trim() || '',
       currency: data.currency,
       targetAmount: data.targetAmount || null,
       deadline: data.deadline || null,
-      updatedAt: serverTimestamp(),
     })
     navigate(`/event/${eventId}`)
   }

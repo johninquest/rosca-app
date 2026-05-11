@@ -1,45 +1,50 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db } from '../lib/firebase'
+import pb from '../lib/pocketbase'
 
 const AuthContext = createContext(null)
 
+function normalizeUser(model) {
+  if (!model) return null
+  return {
+    uid: model.id,
+    displayName: model.name || model.email,
+    email: model.email,
+    photoURL: model.avatar ? pb.files.getURL(model, model.avatar) : null,
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(undefined) // undefined = loading, null = signed out
+  // Resolve synchronously from stored auth — no loading flash on page reload
+  const [user, setUser] = useState(() =>
+    pb.authStore.isValid ? normalizeUser(pb.authStore.record) : null
+  )
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        // Fire-and-forget — never await Firestore inside onAuthStateChanged
-        // when using persistentLocalCache, as it can hang before IndexedDB is ready
-        setDoc(
-          doc(db, 'users', firebaseUser.uid),
-          {
-            displayName: firebaseUser.displayName,
-            email: firebaseUser.email,
-            photoURL: firebaseUser.photoURL,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        ).catch(() => {})
-      }
-      setUser(firebaseUser ?? null) // always called now
+    const unsub = pb.authStore.onChange(() => {
+      setUser(pb.authStore.record ? normalizeUser(pb.authStore.record) : null)
     })
-    return unsubscribe
+    return unsub
   }, [])
 
   async function signInWithGoogle() {
-    const provider = new GoogleAuthProvider()
-    await signInWithPopup(auth, provider)
+    await pb.collection('users').authWithOAuth2({ provider: 'google' })
+  }
+
+  async function signInWithEmail(email, password) {
+    await pb.collection('users').authWithPassword(email, password)
+  }
+
+  async function signUpWithEmail(email, password, name) {
+    await pb.collection('users').create({ email, password, passwordConfirm: password, name })
+    await pb.collection('users').authWithPassword(email, password)
   }
 
   async function signOutUser() {
-    await signOut(auth)
+    pb.authStore.clear()
   }
 
   return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signOutUser }}>
+    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signUpWithEmail, signOutUser }}>
       {children}
     </AuthContext.Provider>
   )

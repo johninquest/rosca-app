@@ -1,18 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
-import {
-  doc, getDoc, onSnapshot, collection, query, where,
-  orderBy, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp,
-} from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import pb from '../lib/pocketbase'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ContributionForm from '../components/ContributionForm'
 import { formatAmount, formatDate, todayISO } from '../utils/format'
 import { buildWhatsAppUrl } from '../utils/whatsapp'
-import { exportPDF, exportCSV } from '../utils/export'
+import { exportCSV } from '../utils/export'
 
 export default function EventDetailPage() {
   const { eventId } = useParams()
@@ -29,32 +25,55 @@ export default function EventDetailPage() {
   const [editingContrib, setEditingContrib] = useState(null)
   const [deletingContribId, setDeletingContribId] = useState(null)
 
-  const isOwner = user && event && user.uid === event.ownerId
+  const isOwner = user && event && user.uid === event.owner
 
   // Load event
   useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, 'events', eventId),
-      (snap) => {
-        if (!snap.exists()) { setEventError('Event not found.'); return }
-        setEvent({ id: snap.id, ...snap.data() })
-      },
-      () => setEventError('Failed to load event.')
-    )
-    return unsub
-  }, [eventId])
+    let active = true
+    let unsub
+
+    pb.collection('events').getOne(eventId)
+      .then((record) => { if (active) setEvent(record) })
+      .catch(() => { if (active) setEventError('Event not found.') })
+
+    pb.collection('events').subscribe(eventId, (e) => {
+      if (e.action === 'delete') { navigate('/dashboard'); return }
+      if (active) setEvent(e.record)
+    }).then((u) => { if (active) unsub = u; else u() })
+
+    return () => {
+      active = false
+      unsub?.()
+    }
+  }, [eventId, navigate])
 
   // Load contributions
   useEffect(() => {
-    const q = query(
-      collection(db, 'contributions'),
-      where('eventId', '==', eventId),
-      orderBy('date', 'desc')
-    )
-    const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
-      setContributions(snap.docs.map((d) => ({ id: d.id, ...d.data(), _pending: d.metadata.hasPendingWrites })))
-    }, () => setContributions([]))
-    return unsub
+    let active = true
+    let unsub
+
+    const loadContributions = async () => {
+      try {
+        const records = await pb.collection('contributions').getFullList({
+          filter: `event = "${eventId}"`,
+          sort: '-date',
+        })
+        if (active) setContributions(records)
+      } catch {
+        if (active) setContributions([])
+      }
+    }
+
+    loadContributions()
+
+    pb.collection('contributions').subscribe('*', (e) => {
+      if (e.record.event === eventId) loadContributions()
+    }).then((u) => { if (active) unsub = u; else u() })
+
+    return () => {
+      active = false
+      unsub?.()
+    }
   }, [eventId])
 
   // --- Derived totals ---
@@ -68,50 +87,44 @@ export default function EventDetailPage() {
 
   // --- Event actions ---
   async function handleToggleStatus() {
-    await updateDoc(doc(db, 'events', eventId), {
+    await pb.collection('events').update(eventId, {
       status: event.status === 'open' ? 'closed' : 'open',
-      updatedAt: serverTimestamp(),
     })
   }
 
   async function handleDeleteEvent() {
-    // Cascade delete contributions first
+    // Cascade delete all contributions first
     if (contributions && contributions.length > 0) {
-      const batch = writeBatch(db)
-      contributions.forEach((c) => batch.delete(doc(db, 'contributions', c.id)))
-      await batch.commit()
+      await Promise.all(contributions.map((c) => pb.collection('contributions').delete(c.id)))
     }
-    await deleteDoc(doc(db, 'events', eventId))
+    await pb.collection('events').delete(eventId)
     navigate('/dashboard')
   }
 
   // --- Contribution actions ---
   async function handleAddContribution(data) {
-    await addDoc(collection(db, 'contributions'), {
-      eventId,
+    await pb.collection('contributions').create({
+      event: eventId,
       contributorName: data.contributorName.trim(),
       amount: data.amount,
       date: data.date,
       note: data.note?.trim() || '',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
     })
     setShowAddContrib(false)
   }
 
   async function handleEditContribution(data) {
-    await updateDoc(doc(db, 'contributions', editingContrib.id), {
+    await pb.collection('contributions').update(editingContrib.id, {
       contributorName: data.contributorName.trim(),
       amount: data.amount,
       date: data.date,
       note: data.note?.trim() || '',
-      updatedAt: serverTimestamp(),
     })
     setEditingContrib(null)
   }
 
   async function handleDeleteContribution() {
-    await deleteDoc(doc(db, 'contributions', deletingContribId))
+    await pb.collection('contributions').delete(deletingContribId)
     setDeletingContribId(null)
   }
 
@@ -260,22 +273,13 @@ export default function EventDetailPage() {
                   Delete
                 </button>
                 {contributions && contributions.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => exportPDF(event, contributions)}
-                      className="px-3 py-2 border border-[#E0E0E0] rounded-md text-sm font-medium text-[#1A1A1A] hover:bg-[#F9F9F9] transition-colors"
-                    >
-                      Export PDF
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => exportCSV(event, contributions)}
-                      className="px-3 py-2 border border-[#E0E0E0] rounded-md text-sm font-medium text-[#1A1A1A] hover:bg-[#F9F9F9] transition-colors"
-                    >
-                      Export CSV
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => exportCSV(event, contributions)}
+                    className="px-3 py-2 border border-[#E0E0E0] rounded-md text-sm font-medium text-[#1A1A1A] hover:bg-[#F9F9F9] transition-colors"
+                  >
+                    Export CSV
+                  </button>
                 )}
               </>
             )}
@@ -306,11 +310,6 @@ export default function EventDetailPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-[#1A1A1A] truncate">{c.contributorName}</p>
-                        {c._pending && (
-                          <span className="shrink-0 text-[10px] font-medium text-[#555555] border border-[#E0E0E0] rounded-full px-1.5 py-0.5 leading-none">
-                            syncing…
-                          </span>
-                        )}
                       </div>
                       <p className="text-xl font-bold text-[#1A1A1A] mt-0.5">
                         {formatAmount(c.amount, event.currency)}
