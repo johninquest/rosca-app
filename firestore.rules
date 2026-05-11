@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users ──────────────────────────────────────────────────────────────
+    // Each user can only read and write their own document.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Events ─────────────────────────────────────────────────────────────
+    // Anyone can read an event (public shareable link — protected by obscure Firestore auto-ID).
+    // Only the authenticated owner can create, update, or delete their events.
+    match /events/{eventId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.currency in ['XAF', 'USD', 'EUR']
+        && request.resource.data.status in ['open', 'closed'];
+
+      allow update: if request.auth != null
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ── Contributions ───────────────────────────────────────────────────────
+    // Anyone can read contributions for a given event (public shareable link).
+    // Only the authenticated owner of the parent event can write contributions.
+    match /contributions/{contributionId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && isEventOwner(request.resource.data.eventId)
+        && request.resource.data.contributorName is string
+        && request.resource.data.contributorName.size() > 0
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 1
+        && request.resource.data.amount <= 1000000;
+
+      allow update: if request.auth != null
+        && isEventOwner(resource.data.eventId)
+        && request.resource.data.amount >= 1
+        && request.resource.data.amount <= 1000000;
+
+      allow delete: if request.auth != null
+        && isEventOwner(resource.data.eventId);
+    }
+
+    // Helper: check that the authenticated user owns the given event
+    function isEventOwner(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.ownerId == request.auth.uid;
+    }
+  }
+}
