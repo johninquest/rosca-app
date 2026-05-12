@@ -43,11 +43,10 @@ export function buildWhatsAppUrl(event, contributions, _eventUrl) {
   if (contributions.length > 0) {
     const sorted = [...contributions]
       .sort((a, b) => {
-        const da = a.date ? new Date(a.date) : new Date(0)
-        const db = b.date ? new Date(b.date) : new Date(0)
-        return db - da
+        const da = a.created ? new Date(a.created) : new Date(0)
+        const db = b.created ? new Date(b.created) : new Date(0)
+        return da - db
       })
-      .slice(0, 5)
 
     msg += `\nContributions:\n`
     sorted.forEach((c) => {
