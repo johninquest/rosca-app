@@ -73,34 +73,13 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-[#1A1A1A] tracking-tight">Mocotr</h1>
-          <p className="mt-2 text-[#555555] text-base">Community Money Contribution Tracker</p>
+          <p className="mt-2 text-[#555555] text-base">Money Contribution Tracker</p>
           <p className="mt-1 text-[#555555] text-sm">
             Track and share family fundraising rounds — funerals, celebrations, and more.
           </p>
         </div>
 
         <div className="bg-white border border-[#E0E0E0] rounded-lg p-8 shadow-sm space-y-4">
-          {/* Google */}
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-[#E0E0E0] rounded-md text-[#1A1A1A] font-medium hover:bg-[#F9F9F9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? (
-              <div className="w-4 h-4 border-2 border-[#E0E0E0] border-t-[#1A1A1A] rounded-full animate-spin" />
-            ) : (
-              <GoogleIcon />
-            )}
-            Continue with Google
-          </button>
-
-          <div className="flex items-center gap-3">
-            <hr className="flex-1 border-[#E0E0E0]" />
-            <span className="text-xs text-[#555555]">or</span>
-            <hr className="flex-1 border-[#E0E0E0]" />
-          </div>
-
           {/* Email / password form */}
           <form onSubmit={handleEmailSubmit} className="space-y-3">
             {mode === 'signup' && (
@@ -139,7 +118,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-xs text-[#555555]">
+          {/* <p className="text-center text-xs text-[#555555]">
             {mode === 'signin' ? (
               <>No account?{' '}
                 <button type="button" onClick={() => switchMode('signup')} className="underline text-[#1A1A1A]">
@@ -153,11 +132,32 @@ export default function LoginPage() {
                 </button>
               </>
             )}
-          </p>
+          </p> */}
 
           {error && (
             <p className="text-sm text-center text-[#1A1A1A]" role="alert">{error}</p>
           )}
+
+          <div className="flex items-center gap-3">
+            <hr className="flex-1 border-[#E0E0E0]" />
+            <span className="text-xs text-[#555555]">or</span>
+            <hr className="flex-1 border-[#E0E0E0]" />
+          </div>
+
+          {/* Google */}
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-[#E0E0E0] rounded-md text-[#1A1A1A] font-medium hover:bg-[#F9F9F9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-[#E0E0E0] border-t-[#1A1A1A] rounded-full animate-spin" />
+            ) : (
+              <GoogleIcon />
+            )}
+            Continue with Google
+          </button>
         </div>
       </div>
     </div>

@@ -60,7 +60,7 @@ export default function EditEventPage() {
     description: event.description,
     currency: event.currency,
     targetAmount: event.targetAmount ?? '',
-    deadline: event.deadline ?? '',
+    deadline: event.deadline ? event.deadline.slice(0, 10) : '',
   }
 
   return (

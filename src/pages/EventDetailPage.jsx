@@ -377,7 +377,7 @@ export default function EventDetailPage() {
           defaultValues={{
             contributorName: editingContrib.contributorName,
             amount: editingContrib.amount,
-            date: editingContrib.date ?? todayISO(),
+            date: editingContrib.date ? editingContrib.date.slice(0, 10) : todayISO(),
             note: editingContrib.note ?? '',
           }}
           onSubmit={handleEditContribution}
