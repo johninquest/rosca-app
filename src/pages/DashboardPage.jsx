@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import pb from '../lib/pocketbase'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
-import { formatAmount } from '../utils/format'
+import { formatAmount, formatDate } from '../utils/format'
 
 function EventCard({ event }) {
   const { id, title, currency, targetAmount, status, created, deadline } = event
@@ -30,8 +30,7 @@ function EventCard({ event }) {
       <TotalCollected eventId={id} currency={currency} targetAmount={hasTarget ? targetAmount : null} />
 
       <div className="mt-3 flex items-center gap-3 text-xs text-[#555555]">
-        <span>{currency}</span>
-        {deadline && <span>Deadline: {deadline}</span>}
+        {deadline && <span>Deadline: {formatDate(deadline)}</span>}
         {created && (
           <span className="ml-auto">
             {new Date(created).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -53,10 +52,11 @@ function TotalCollected({ eventId, currency, targetAmount }) {
       try {
         const records = await pb.collection('mocotr_contributions').getFullList({
           filter: `event = "${eventId}"`,
-          fields: 'amount',
+          $autoCancel: false,
         })
         if (active) setTotal(records.reduce((acc, r) => acc + (r.amount ?? 0), 0))
-      } catch {
+      } catch (err) {
+        console.error('Fetch error:', err)
         if (active) setTotal(null)
       }
     }
@@ -80,7 +80,7 @@ function TotalCollected({ eventId, currency, targetAmount }) {
     <div>
       <div className="flex items-baseline gap-2">
         <span className="text-xl font-bold text-[#1A1A1A]">
-          {total === undefined ? '…' : total === null ? 'N/A' : formatAmount(total, currency)}
+          {total === undefined ? '…' : formatAmount(total ?? 0, currency)}
         </span>
         {hasTarget && total != null && (
           <span className="text-sm text-[#555555]">of {formatAmount(targetAmount, currency)}</span>

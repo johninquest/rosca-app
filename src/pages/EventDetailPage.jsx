@@ -194,7 +194,7 @@ export default function EventDetailPage() {
               </div>
             )}
             <div className="flex gap-2">
-              <span className="w-24 shrink-0">Collected</span>
+              <span className="w-24 shrink-0">Collected total:</span>
               <span className="font-bold text-[#1A1A1A] text-base">
                 {contributions === undefined ? '…' : total === null ? 'N/A' : formatAmount(total, event.currency)}
               </span>
@@ -209,7 +209,7 @@ export default function EventDetailPage() {
             )}
             {event.deadline && (
               <div className="flex gap-2">
-                <span className="w-24 shrink-0">Deadline</span>
+                <span className="w-24 shrink-0">Deadline:</span>
                 <span className="font-medium text-[#1A1A1A]">{formatDate(event.deadline)}</span>
               </div>
             )}
