@@ -5,6 +5,7 @@ const event = {
   title: 'Funeral for Uncle Paul',
   currency: 'XAF',
   targetAmount: 500000,
+  deadline: '2026-05-31',
 }
 
 const contributions = [
@@ -25,26 +26,43 @@ describe('buildWhatsAppUrl', () => {
     expect(decodeURIComponent(url)).toContain('Funeral for Uncle Paul')
   })
 
-  it('includes target, collected, remaining and progress when target is set', () => {
+  it('includes target and collected when target is set', () => {
     const decoded = decodeURIComponent(buildWhatsAppUrl(event, contributions, eventUrl))
     expect(decoded).toContain('Target')
     expect(decoded).toContain('Collected')
-    expect(decoded).toContain('Remaining')
-    expect(decoded).toContain('Progress')
   })
 
-  it('omits target/remaining/progress lines when no target is set', () => {
+  it('omits target line when no target is set', () => {
     const noTarget = { ...event, targetAmount: null }
     const decoded = decodeURIComponent(buildWhatsAppUrl(noTarget, contributions, eventUrl))
     expect(decoded).not.toContain('Target')
-    expect(decoded).not.toContain('Remaining')
-    expect(decoded).not.toContain('Progress')
     expect(decoded).toContain('Collected')
   })
 
-  it('includes the event URL in the message', () => {
+  it('includes deadline when set', () => {
     const decoded = decodeURIComponent(buildWhatsAppUrl(event, contributions, eventUrl))
-    expect(decoded).toContain(eventUrl)
+    expect(decoded).toContain('Deadline')
+  })
+
+  it('omits deadline when not set', () => {
+    const noDeadline = { ...event, deadline: undefined }
+    const decoded = decodeURIComponent(buildWhatsAppUrl(noDeadline, contributions, eventUrl))
+    expect(decoded).not.toContain('Deadline')
+  })
+
+  it('labels the contribution list as Contributions', () => {
+    const decoded = decodeURIComponent(buildWhatsAppUrl(event, contributions, eventUrl))
+    expect(decoded).toContain('Contributions:')
+  })
+
+  it('does not include the event URL in the message', () => {
+    const decoded = decodeURIComponent(buildWhatsAppUrl(event, contributions, eventUrl))
+    expect(decoded).not.toContain(eventUrl)
+  })
+
+  it('closes with the thank you message', () => {
+    const decoded = decodeURIComponent(buildWhatsAppUrl(event, contributions, eventUrl))
+    expect(decoded).toContain('Thank you all for your contributions')
   })
 
   it('handles empty contributions array without crashing', () => {

@@ -1,50 +1,61 @@
-import { formatAmount, formatDate } from './format'
+import { formatDate } from './format'
+
+/**
+ * Format an amount for WhatsApp: no decimals, thin-space thousands separator.
+ * @param {number|null|undefined} amount
+ * @param {string} currency
+ * @returns {string} e.g. "500 000 XAF"
+ */
+function formatAmountWA(amount, currency) {
+  if (amount == null || !Number.isFinite(amount)) return 'N/A'
+  const formatted = new Intl.NumberFormat('en-US', {
+    style: 'decimal',
+    maximumFractionDigits: 0,
+  })
+    .format(amount)
+    .replace(/,/g, '\u202F')
+  return `${formatted} ${currency}`
+}
 
 /**
  * Build the pre-filled WhatsApp message for an event.
- * @param {object} event - Firestore event document data
+ * @param {object} event - Event document data
  * @param {Array} contributions - Array of contribution documents
- * @param {string} eventUrl - Full public URL for the event
+ * @param {string} _eventUrl - Unused (reserved for future use)
  * @returns {string} WhatsApp wa.me URL
  */
-export function buildWhatsAppUrl(event, contributions, eventUrl) {
-  const { title, currency, targetAmount } = event
+export function buildWhatsAppUrl(event, contributions, _eventUrl) {
+  const { title, currency, targetAmount, deadline } = event
 
   const total = contributions.reduce((sum, c) => sum + (c.amount ?? 0), 0)
-  const formattedTotal = formatAmount(total, currency)
   const hasTarget = targetAmount != null && targetAmount > 0
 
-  const recent = [...contributions]
-    .sort((a, b) => {
-      const da = a.date ? new Date(a.date) : new Date(0)
-      const db_ = b.date ? new Date(b.date) : new Date(0)
-      return db_ - da
-    })
-    .slice(0, 5)
-
-  let msg = `🙏 *Family Contribution Update*\n\n`
-  msg += `📋 *Event:* ${title}\n`
+  let msg = `*${title}*\n\n`
 
   if (hasTarget) {
-    const remaining = Math.max(0, targetAmount - total)
-    const pct = total > 0 ? Math.round((total / targetAmount) * 100) : 0
-    msg += `💰 *Target:* ${formatAmount(targetAmount, currency)}\n`
-    msg += `✅ *Collected:* ${formattedTotal}\n`
-    msg += `⏳ *Remaining:* ${formatAmount(remaining, currency)}\n`
-    msg += `📊 *Progress:* ${pct}%\n`
-  } else {
-    msg += `✅ *Collected:* ${formattedTotal}\n`
+    msg += `Target: ${formatAmountWA(targetAmount, currency)}\n`
+  }
+  msg += `Collected: ${formatAmountWA(total, currency)}\n`
+  if (deadline) {
+    msg += `Deadline: ${formatDate(deadline)}\n`
   }
 
-  if (recent.length > 0) {
-    msg += `\n👥 *Recent contributions:*\n`
-    recent.forEach((c) => {
-      msg += `• ${c.contributorName} — ${formatAmount(c.amount, currency)} (${formatDate(c.date)})\n`
+  if (contributions.length > 0) {
+    const sorted = [...contributions]
+      .sort((a, b) => {
+        const da = a.date ? new Date(a.date) : new Date(0)
+        const db = b.date ? new Date(b.date) : new Date(0)
+        return db - da
+      })
+      .slice(0, 5)
+
+    msg += `\nContributions:\n`
+    sorted.forEach((c) => {
+      msg += `• ${c.contributorName} – ${formatAmountWA(c.amount, currency)}\n`
     })
   }
 
-  msg += `\n🔗 View full details: ${eventUrl}\n`
-  msg += `\nThank you all for your generosity 🙏`
+  msg += `\nThank you all for your contributions!`
 
   return `https://wa.me/?text=${encodeURIComponent(msg)}`
 }

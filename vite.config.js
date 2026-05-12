@@ -10,4 +10,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.js'],
     css: false,
   },
+  server: {
+    host: true, // or '0.0.0.0'
+  },
 })
