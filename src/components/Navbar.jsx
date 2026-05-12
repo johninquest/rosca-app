@@ -5,6 +5,21 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
+const IconUser = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+  </svg>
+)
+
+const IconLogOut = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+)
+
 export default function Navbar() {
   const { user, signOutUser } = useAuth()
   const navigate = useNavigate()
@@ -23,12 +38,28 @@ export default function Navbar() {
             Mocotr
           </Link>
           {user && (
-            <button
-              onClick={handleSignOut}
-              className="text-sm text-[#555555] hover:text-[#1A1A1A] transition-colors"
-            >
-              Sign out
-            </button>
+            <div className="flex items-center gap-1">
+              <Link
+                to="/profile"
+                aria-label="My profile"
+                title="My profile"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-[#555555] hover:text-[#1A1A1A] hover:bg-[#F0F0F0] transition-colors"
+              >
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName} className="w-7 h-7 rounded-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <IconUser />
+                )}
+              </Link>
+              <button
+                onClick={handleSignOut}
+                aria-label="Sign out"
+                title="Sign out"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-[#555555] hover:text-[#1A1A1A] hover:bg-[#F0F0F0] transition-colors"
+              >
+                <IconLogOut />
+              </button>
+            </div>
           )}
         </div>
       </header>

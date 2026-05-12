@@ -9,6 +9,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const CreateEventPage = lazy(() => import('./pages/CreateEventPage'))
 const EventDetailPage = lazy(() => import('./pages/EventDetailPage'))
 const EditEventPage = lazy(() => import('./pages/EditEventPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/event/new" element={<ProtectedRoute><CreateEventPage /></ProtectedRoute>} />
             <Route path="/event/:eventId/edit" element={<ProtectedRoute><EditEventPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
