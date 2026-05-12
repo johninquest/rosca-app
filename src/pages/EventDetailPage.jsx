@@ -57,7 +57,7 @@ export default function EventDetailPage() {
       try {
         const records = await pb.collection('mocotr_contributions').getFullList({
           filter: `event = "${eventId}"`,
-          sort: '-date',
+          sort: '+created',
         })
         if (active) setContributions(records)
       } catch {
