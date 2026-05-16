@@ -121,8 +121,12 @@ export default function EventForm({ defaultValues, onSubmit, submitLabel = 'Save
           placeholder="e.g. 500000"
           className="w-full px-3 py-2.5 border border-[#E0E0E0] rounded-md text-[#1A1A1A] text-base bg-white placeholder-[#555555]/50 outline-none focus:ring-2 focus:ring-[#1A1A1A] transition"
           {...register('targetAmount', {
-            min: { value: 1, message: 'Must be at least 1' },
-            valueAsNumber: true,
+            setValueAs: (value) => {
+              if (value === '' || value === null || value === undefined) return undefined
+              const parsed = Number(value)
+              return Number.isFinite(parsed) ? parsed : undefined
+            },
+            validate: (value) => value === undefined || value >= 1 || 'Must be at least 1',
           })}
         />
         {errors.targetAmount && (

@@ -23,16 +23,20 @@ export default function EditEventPage() {
   }, [eventId, user])
 
   async function handleSubmit(data) {
-    await pb.collection('mocotr_events').update(eventId, {
-      title: data.title.trim(),
-      description: data.description?.trim() || '',
-      currency: data.currency,
-      targetAmount: data.targetAmount || null,
-      deadline: data.deadline || null,
-      paymentMethod: data.paymentMethod || null,
-      paymentDetails: data.paymentDetails || null,
-    })
-    navigate(`/event/${eventId}`)
+    try {
+      await pb.collection('mocotr_events').update(eventId, {
+        title: data.title.trim(),
+        description: data.description?.trim() || '',
+        currency: data.currency,
+        targetAmount: data.targetAmount ?? null,
+        deadline: data.deadline || null,
+        paymentMethod: data.paymentMethod || null,
+        paymentDetails: data.paymentDetails || null,
+      })
+      navigate(`/event/${eventId}`)
+    } catch (err) {
+      setError(err?.message || 'Failed to save event.')
+    }
   }
 
   if (error) {
@@ -62,7 +66,7 @@ export default function EditEventPage() {
     title: event.title,
     description: event.description,
     currency: event.currency,
-    targetAmount: event.targetAmount ?? '',
+    targetAmount: event.targetAmount || undefined,
     deadline: event.deadline ? event.deadline.slice(0, 10) : '',
     paymentMethod: event.paymentMethod || '',
     pm_momoName: event.paymentMethod === 'mobile_money' ? (pd.name || '') : '',

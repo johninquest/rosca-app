@@ -13,7 +13,7 @@ export default function CreateEventPage() {
       title: data.title.trim(),
       description: data.description?.trim() || '',
       currency: data.currency,
-      targetAmount: data.targetAmount || null,
+      targetAmount: data.targetAmount ?? null,
       deadline: data.deadline || null,
       status: 'open',
       owner: user.uid,
