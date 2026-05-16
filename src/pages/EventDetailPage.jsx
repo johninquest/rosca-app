@@ -264,6 +264,89 @@ export default function EventDetailPage() {
           </div>
         </div>
 
+        {/* How to Contribute card */}
+        {event.paymentMethod && event.paymentDetails && (
+          <div className="bg-white border border-[#E0E0E0] rounded-lg p-5">
+            <h2 className="text-sm font-semibold text-[#1A1A1A] mb-3">Send Money To</h2>
+            <div className="space-y-1 text-sm text-[#555555]">
+              {event.paymentMethod === 'mobile_money' && (
+                <>
+                  <div className="flex gap-2">
+                    <span className="w-28 shrink-0">Method</span>
+                    <span className="font-medium text-[#1A1A1A]">Mobile Money</span>
+                  </div>
+                  {event.paymentDetails.name && (
+                    <div className="flex gap-2">
+                      <span className="w-28 shrink-0">Name</span>
+                      <span className="font-medium text-[#1A1A1A]">{event.paymentDetails.name}</span>
+                    </div>
+                  )}
+                  {event.paymentDetails.number && (
+                    <div className="flex gap-2">
+                      <span className="w-28 shrink-0">Number</span>
+                      <span className="font-medium text-[#1A1A1A] font-mono">{event.paymentDetails.number}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {event.paymentMethod === 'bank_transfer' && (
+                <>
+                  <div className="flex gap-2">
+                    <span className="w-28 shrink-0">Method</span>
+                    <span className="font-medium text-[#1A1A1A]">Bank Transfer</span>
+                  </div>
+                  {event.paymentDetails.bankName && (
+                    <div className="flex gap-2">
+                      <span className="w-28 shrink-0">Bank</span>
+                      <span className="font-medium text-[#1A1A1A]">{event.paymentDetails.bankName}</span>
+                    </div>
+                  )}
+                  {event.paymentDetails.accountName && (
+                    <div className="flex gap-2">
+                      <span className="w-28 shrink-0">Account name</span>
+                      <span className="font-medium text-[#1A1A1A]">{event.paymentDetails.accountName}</span>
+                    </div>
+                  )}
+                  {event.paymentDetails.accountNumber && (
+                    <div className="flex gap-2">
+                      <span className="w-28 shrink-0">Account no.</span>
+                      <span className="font-medium text-[#1A1A1A] font-mono">{event.paymentDetails.accountNumber}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {event.paymentMethod === 'cash' && (
+                <>
+                  <div className="flex gap-2">
+                    <span className="w-28 shrink-0">Method</span>
+                    <span className="font-medium text-[#1A1A1A]">Cash</span>
+                  </div>
+                  {event.paymentDetails.instructions && (
+                    <p className="mt-1 text-[#1A1A1A]">{event.paymentDetails.instructions}</p>
+                  )}
+                </>
+              )}
+              {event.paymentMethod === 'paypal' && (
+                <>
+                  <div className="flex gap-2">
+                    <span className="w-28 shrink-0">Method</span>
+                    <span className="font-medium text-[#1A1A1A]">PayPal / International</span>
+                  </div>
+                  {event.paymentDetails.link && (
+                    <div className="flex gap-2">
+                      <span className="w-28 shrink-0">Link / Email</span>
+                      <span className="font-medium text-[#1A1A1A] break-all">{event.paymentDetails.link}</span>
+                    </div>
+                  )}
+                  {event.paymentDetails.instructions && (
+                    <p className="mt-1 text-[#1A1A1A]">{event.paymentDetails.instructions}</p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Contributions list */}
         <div className="bg-white border border-[#E0E0E0] rounded-lg">
           <div className="px-5 py-4 border-b border-[#E0E0E0]">

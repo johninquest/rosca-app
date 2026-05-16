@@ -17,6 +17,8 @@ export default function CreateEventPage() {
       deadline: data.deadline || null,
       status: 'open',
       owner: user.uid,
+      paymentMethod: data.paymentMethod || null,
+      paymentDetails: data.paymentDetails || null,
     })
     navigate(`/event/${record.id}`)
   }

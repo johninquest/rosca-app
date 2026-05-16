@@ -54,6 +54,23 @@ export function buildWhatsAppUrl(event, contributions, _eventUrl) {
     })
   }
 
+  if (event.paymentMethod && event.paymentDetails) {
+    const d = event.paymentDetails
+    msg += `\nSend money to:\n`
+    if (event.paymentMethod === 'mobile_money') {
+      const parts = [d.name, d.number].filter(Boolean)
+      msg += `• Mobile Money: ${parts.join(' – ')}\n`
+    } else if (event.paymentMethod === 'bank_transfer') {
+      const parts = [d.bankName, d.accountName, d.accountNumber].filter(Boolean)
+      msg += `• Bank Transfer: ${parts.join(' | ')}\n`
+    } else if (event.paymentMethod === 'cash') {
+      msg += `• Cash: ${d.instructions || ''}\n`
+    } else if (event.paymentMethod === 'paypal') {
+      const parts = [d.link, d.instructions].filter(Boolean)
+      msg += `• PayPal / International: ${parts.join(' – ')}\n`
+    }
+  }
+
   msg += `\nThank you all for your contributions!`
 
   return `https://wa.me/?text=${encodeURIComponent(msg)}`

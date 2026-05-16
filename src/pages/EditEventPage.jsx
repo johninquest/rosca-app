@@ -29,6 +29,8 @@ export default function EditEventPage() {
       currency: data.currency,
       targetAmount: data.targetAmount || null,
       deadline: data.deadline || null,
+      paymentMethod: data.paymentMethod || null,
+      paymentDetails: data.paymentDetails || null,
     })
     navigate(`/event/${eventId}`)
   }
@@ -55,12 +57,22 @@ export default function EditEventPage() {
     )
   }
 
+  const pd = event.paymentDetails || {}
   const defaultValues = {
     title: event.title,
     description: event.description,
     currency: event.currency,
     targetAmount: event.targetAmount ?? '',
     deadline: event.deadline ? event.deadline.slice(0, 10) : '',
+    paymentMethod: event.paymentMethod || '',
+    pm_momoName: event.paymentMethod === 'mobile_money' ? (pd.name || '') : '',
+    pm_momoNumber: event.paymentMethod === 'mobile_money' ? (pd.number || '') : '',
+    pm_bankName: event.paymentMethod === 'bank_transfer' ? (pd.bankName || '') : '',
+    pm_bankAccountName: event.paymentMethod === 'bank_transfer' ? (pd.accountName || '') : '',
+    pm_bankAccountNumber: event.paymentMethod === 'bank_transfer' ? (pd.accountNumber || '') : '',
+    pm_cashInstructions: event.paymentMethod === 'cash' ? (pd.instructions || '') : '',
+    pm_paypalLink: event.paymentMethod === 'paypal' ? (pd.link || '') : '',
+    pm_paypalInstructions: event.paymentMethod === 'paypal' ? (pd.instructions || '') : '',
   }
 
   return (
