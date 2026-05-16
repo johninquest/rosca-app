@@ -42,7 +42,7 @@ export default function EditEventPage() {
   if (error) {
     return (
       <div className="min-h-dvh bg-[#F9F9F9]">
-        <Navbar />
+        <Navbar backTo={`/event/${eventId}`} />
         <main className="max-w-2xl mx-auto px-4 py-6">
           <p className="text-[#555555]">{error}</p>
         </main>
@@ -53,7 +53,7 @@ export default function EditEventPage() {
   if (event === undefined) {
     return (
       <div className="min-h-dvh bg-[#F9F9F9]">
-        <Navbar />
+        <Navbar backTo={`/event/${eventId}`} />
         <main className="max-w-2xl mx-auto px-4 py-6 flex justify-center">
           <div className="w-6 h-6 border-2 border-[#E0E0E0] border-t-[#1A1A1A] rounded-full animate-spin" />
         </main>
@@ -81,11 +81,11 @@ export default function EditEventPage() {
 
   return (
     <div className="min-h-dvh bg-[#F9F9F9]">
-      <Navbar />
+      <Navbar backTo={`/event/${eventId}`} />
       <main className="max-w-2xl mx-auto px-4 py-6">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-6">Edit Event</h1>
         <div className="bg-white border border-[#E0E0E0] rounded-lg p-6">
-          <EventForm defaultValues={defaultValues} onSubmit={handleSubmit} submitLabel="Save Changes" />
+          <EventForm defaultValues={defaultValues} onSubmit={handleSubmit} onCancel={() => navigate(`/event/${eventId}`)} submitLabel="Save Changes" />
         </div>
       </main>
     </div>

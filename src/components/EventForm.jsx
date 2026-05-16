@@ -12,9 +12,9 @@ const PAYMENT_METHODS = [
 
 /**
  * Shared event form used by CreateEventPage and EditEventPage.
- * @param {{ defaultValues?: object, onSubmit: (data: object) => Promise<void>, submitLabel?: string }} props
+ * @param {{ defaultValues?: object, onSubmit: (data: object) => Promise<void>, onCancel?: () => void, submitLabel?: string }} props
  */
-export default function EventForm({ defaultValues, onSubmit, submitLabel = 'Save' }) {
+export default function EventForm({ defaultValues, onSubmit, onCancel, submitLabel = 'Save' }) {
   const {
     register,
     handleSubmit,
@@ -281,13 +281,25 @@ export default function EventForm({ defaultValues, onSubmit, submitLabel = 'Save
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full py-3 bg-[#1A1A1A] text-white font-medium rounded-md hover:bg-[#3A3A3A] disabled:opacity-50 transition-colors"
-      >
-        {isSubmitting ? 'Saving…' : submitLabel}
-      </button>
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="w-full sm:w-1/3 py-3 px-4 border border-[#E0E0E0] rounded-md font-medium text-[#1A1A1A] hover:bg-[#F9F9F9] transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full xl:flex-1 sm:flex-1 py-3 bg-[#1A1A1A] text-white font-medium rounded-md hover:bg-[#3A3A3A] disabled:opacity-50 transition-colors"
+        >
+          {isSubmitting ? 'Saving…' : submitLabel}
+        </button>
+      </div>
     </form>
   )
 }

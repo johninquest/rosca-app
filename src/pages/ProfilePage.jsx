@@ -31,7 +31,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-dvh bg-[#F9F9F9]">
-      <Navbar />
+      <Navbar backTo="/dashboard" />
       <main className="max-w-2xl mx-auto px-4 py-6">
         <h1 className="text-xl font-semibold text-[#1A1A1A] mb-6">My Profile</h1>
 

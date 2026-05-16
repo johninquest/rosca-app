@@ -20,7 +20,13 @@ const IconLogOut = () => (
   </svg>
 )
 
-export default function Navbar() {
+const IconChevronLeft = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+)
+
+export default function Navbar({ backTo }) {
   const { user, signOutUser } = useAuth()
   const navigate = useNavigate()
   const isOnline = useOnlineStatus()
@@ -34,9 +40,16 @@ export default function Navbar() {
     <>
       <header className="bg-white border-b border-[#E0E0E0] sticky top-0 z-40">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/dashboard" className="font-semibold text-[#1A1A1A] tracking-tight">
-            Mocotr
-          </Link>
+          <div className="flex items-center gap-1">
+            {backTo && (
+              <Link to={backTo} className="w-9 h-9 flex items-center justify-center rounded-full text-[#555555] hover:text-[#1A1A1A] hover:bg-[#F0F0F0] transition-colors -ml-2 mr-1" aria-label="Go back">
+                <IconChevronLeft />
+              </Link>
+            )}
+            <Link to="/dashboard" className="font-semibold text-[#1A1A1A] tracking-tight">
+              Mocotr
+            </Link>
+          </div>
           {user && (
             <div className="flex items-center gap-1">
               <Link

@@ -139,7 +139,7 @@ export default function EventDetailPage() {
   if (eventError) {
     return (
       <div className="min-h-dvh bg-[#F9F9F9]">
-        <Navbar />
+        <Navbar backTo="/dashboard" />
         <main className="max-w-2xl mx-auto px-4 py-6">
           <p className="text-[#555555]">{eventError}</p>
         </main>
@@ -150,7 +150,7 @@ export default function EventDetailPage() {
   if (event === undefined) {
     return (
       <div className="min-h-dvh bg-[#F9F9F9]">
-        <Navbar />
+        <Navbar backTo="/dashboard" />
         <main className="max-w-2xl mx-auto px-4 py-6 flex justify-center pt-16">
           <div className="w-8 h-8 border-2 border-[#E0E0E0] border-t-[#1A1A1A] rounded-full animate-spin" />
         </main>
@@ -160,7 +160,7 @@ export default function EventDetailPage() {
 
   return (
     <div className="min-h-dvh bg-[#F9F9F9]">
-      <Navbar />
+      <Navbar backTo="/dashboard" />
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         {/* Summary card */}
