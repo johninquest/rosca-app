@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import packageJson from '../../package.json'
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [googleTooltip, setGoogleTooltip] = useState(false)
 
   useEffect(() => {
     if (user) navigate('/dashboard', { replace: true })
@@ -147,9 +149,9 @@ export default function LoginPage() {
           {/* Google */}
           <button
             type="button"
-            onClick={handleGoogle}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-[#E0E0E0] rounded-md text-[#1A1A1A] font-medium hover:bg-[#F9F9F9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            onMouseEnter={() => setGoogleTooltip(true)}
+            onMouseLeave={() => setGoogleTooltip(false)}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-[#E0E0E0] rounded-md text-[#1A1A1A] font-medium hover:bg-[#F9F9F9] disabled:opacity-50 disabled:cursor-not-allowed transition-colors relative"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-[#E0E0E0] border-t-[#1A1A1A] rounded-full animate-spin" />
@@ -157,8 +159,15 @@ export default function LoginPage() {
               <GoogleIcon />
             )}
             Continue with Google
+            {googleTooltip && (
+              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#1A1A1A] text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
+                Coming soon!
+              </span>
+            )}
           </button>
         </div>
+
+        <p className="text-center text-xs text-[#999999] mt-6">v{packageJson.version}</p>
       </div>
     </div>
   )
