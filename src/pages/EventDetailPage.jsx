@@ -377,20 +377,33 @@ export default function EventDetailPage() {
                       </p>
                     </div>
                     {isOwner && (
-                      <div className="flex gap-3 shrink-0">
+                      <div className="flex gap-1 shrink-0">
                         <button
                           type="button"
                           onClick={() => setEditingContrib(c)}
-                          className="text-xs text-[#AAAAAA] hover:text-[#1A1A1A] transition-colors"
+                          aria-label={`Edit contribution from ${c.contributorName}`}
+                          title="Edit contribution"
+                          className="inline-flex h-[44px] w-[44px] items-center justify-center rounded-md text-[#0F4C81] hover:bg-[#EAF2F8] active:bg-[#DCEAF5] transition-colors"
                         >
-                          edit
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M4 20h4l10.5-10.5a1.414 1.414 0 0 0 0-2L16.5 5.5a1.414 1.414 0 0 0-2 0L4 16v4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="m13.5 8.5 2 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeletingContribId(c.id)}
-                          className="text-xs text-[#AAAAAA] hover:text-[#1A1A1A] transition-colors"
+                          aria-label={`Delete contribution from ${c.contributorName}`}
+                          title="Delete contribution"
+                          className="inline-flex h-[44px] w-[44px] items-center justify-center rounded-md text-[#B42318] hover:bg-[#FEECEB] active:bg-[#FBD5D2] transition-colors"
                         >
-                          delete
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M4 7h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M10 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M14 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
                         </button>
                       </div>
                     )}
