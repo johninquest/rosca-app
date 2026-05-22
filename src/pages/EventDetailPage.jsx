@@ -488,14 +488,23 @@ export default function EventDetailPage() {
       />
 
       {/* Delete contribution confirmation */}
-      <ConfirmDialog
-        open={!!deletingContribId}
-        title="Delete this contribution?"
-        message="This contribution will be permanently removed."
-        onConfirm={handleDeleteContribution}
-        onCancel={() => setDeletingContribId(null)}
-        danger
-      />
+      {deletingContribId && (() => {
+        const contribToDelete = contributions?.find(c => c.id === deletingContribId)
+        return (
+          <ConfirmDialog
+            open
+            title="Delete this contribution?"
+            message={
+              contribToDelete
+                ? `${contribToDelete.contributorName} · ${formatAmount(contribToDelete.amount, event.currency)} (${contribToDelete.date ? formatDate(contribToDelete.date) : '—'})`
+                : 'This contribution will be permanently removed.'
+            }
+            onConfirm={handleDeleteContribution}
+            onCancel={() => setDeletingContribId(null)}
+            danger
+          />
+        )
+      })()}
     </div>
   )
 }
