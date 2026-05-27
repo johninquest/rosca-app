@@ -1,8 +1,20 @@
-/**
- * Reusable confirmation dialog.
- * Usage: <ConfirmDialog open={...} title="..." message="..." onConfirm={...} onCancel={...} danger />
- */
-export default function ConfirmDialog({ open, title, message, onConfirm, onCancel, danger = false }) {
+interface ConfirmDialogProps {
+  open: boolean
+  title: string
+  message?: string
+  onConfirm: () => void
+  onCancel: () => void
+  danger?: boolean
+}
+
+export default function ConfirmDialog({
+  open,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  danger = false,
+}: ConfirmDialogProps) {
   if (!open) return null
 
   return (

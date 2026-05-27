@@ -1,11 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
-/**
- * Returns true when the browser has network connectivity, false when offline.
- * Updates reactively as the connection state changes.
- */
-export function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
+export function useOnlineStatus(): boolean {
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine)
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
