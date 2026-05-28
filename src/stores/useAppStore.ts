@@ -6,6 +6,7 @@ export type Screen =
   | 'addCycle'
   | 'members'
   | 'addContribution'
+  | 'addPayout'
   | 'settings'
 
 interface AppState {
@@ -13,6 +14,7 @@ interface AppState {
   selectedCycleId: string | null
   setScreen: (screen: Screen) => void
   openCycleDetail: (cycleId: string) => void
+  openAddPayout: (cycleId: string) => void
   goDashboard: () => void
 }
 
@@ -21,5 +23,6 @@ export const useAppStore = create<AppState>((set) => ({
   selectedCycleId: null,
   setScreen: (screen) => set({ screen }),
   openCycleDetail: (cycleId) => set({ screen: 'cycleDetail', selectedCycleId: cycleId }),
+  openAddPayout: (cycleId) => set({ screen: 'addPayout', selectedCycleId: cycleId }),
   goDashboard: () => set({ screen: 'dashboard', selectedCycleId: null }),
 }))

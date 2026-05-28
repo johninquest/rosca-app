@@ -36,6 +36,8 @@ interface CycleState {
   addCycle: (data: NewCycle) => Promise<void>
   addContribution: (data: NewContribution) => Promise<void>
   addPayout: (data: NewPayout) => Promise<void>
+  advanceRound: (cycleId: string) => Promise<void>
+  deleteContribution: (id: string) => Promise<void>
   getMemberTotal: (memberId: string, cycleId: string) => number
   getCycleTotal: (cycleId: string) => number
   refreshFromServer: () => Promise<void>
@@ -128,6 +130,23 @@ export const useCycleStore = create<CycleState>((set, get) => ({
 
     await db.payouts.add(payout)
     queueSync(id)
+    await get().loadAll()
+  },
+
+  advanceRound: async (cycleId) => {
+    const cycle = get().cycles.find((c) => c.id === cycleId)
+    if (!cycle) return
+    await db.cycles.update(cycleId, {
+      currentRound: cycle.currentRound + 1,
+      updatedAt: new Date(),
+      syncStatus: 'pending',
+    })
+    queueSync(cycleId)
+    await get().loadAll()
+  },
+
+  deleteContribution: async (id) => {
+    await db.contributions.delete(id)
     await get().loadAll()
   },
 

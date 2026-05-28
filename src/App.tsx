@@ -4,6 +4,7 @@ import Spinner from './components/Spinner'
 import Auth from './screens/Auth'
 import AddContribution from './screens/AddContribution'
 import AddCycle from './screens/AddCycle'
+import AddPayout from './screens/AddPayout'
 import CycleDetail from './screens/CycleDetail'
 import Dashboard from './screens/Dashboard'
 import Members from './screens/Members'
@@ -18,6 +19,7 @@ const screens = {
   cycleDetail: CycleDetail,
   addCycle: AddCycle,
   addContribution: AddContribution,
+  addPayout: AddPayout,
   members: Members,
   settings: Settings,
 } as const
