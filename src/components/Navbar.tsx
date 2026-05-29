@@ -89,7 +89,7 @@ export default function Navbar({ showBack = false }: NavbarProps) {
               onClick={() => setScreen('dashboard')}
               className="font-semibold text-text-primary tracking-tight"
             >
-              Tontine Manager
+              Njangi Manager
             </button>
           </div>
 
