@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
 
 export interface MemberFormValues {
   name: string
-  phone: string
+  phone?: string
   joinDate: string
 }
 
@@ -11,8 +11,6 @@ interface MemberFormProps {
   submitLabel?: string
   onSubmit: (values: MemberFormValues) => Promise<void> | void
 }
-
-const CM_PHONE_REGEX = /^\+237\d{8,9}$/
 
 export default function MemberForm({
   defaultValues,
@@ -26,7 +24,7 @@ export default function MemberForm({
   } = useForm<MemberFormValues>({
     defaultValues: {
       name: defaultValues?.name || '',
-      phone: defaultValues?.phone || '+237',
+      phone: defaultValues?.phone || '',
       joinDate: defaultValues?.joinDate || new Date().toISOString().slice(0, 10),
     },
   })
@@ -44,15 +42,9 @@ export default function MemberForm({
       </div>
 
       <div>
-        <label className="block text-sm text-text-secondary mb-1">Phone (+237)</label>
+        <label className="block text-sm text-text-secondary mb-1">Phone (+237) <span className="text-text-secondary font-normal">(optional)</span></label>
         <input
-          {...register('phone', {
-            required: 'Phone is required',
-            pattern: {
-              value: CM_PHONE_REGEX,
-              message: 'Use format +237XXXXXXXXX',
-            },
-          })}
+          {...register('phone')}
           className="w-full px-3 py-2.5 border border-border rounded-lg"
           placeholder="+237699000000"
         />

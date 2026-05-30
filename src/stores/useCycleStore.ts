@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { db } from '../db/dexie'
 import type { Contribution, Cycle, Member, Payout } from '../db/dexie-schema'
-import { pullFromServer, queueSync } from '../services/sync-engine'
+import { pullFromServer, queueSync, tryWithRetry } from '../services/sync-engine'
+import { pb } from '../services/pocketbase'
 
 type NewMember = Omit<
   Member,
@@ -79,8 +80,23 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       syncStatus: 'pending',
     }
 
-    await db.members.add(member)
-    queueSync(id)
+    try {
+      const record = await tryWithRetry(() =>
+        pb.collection('rosca_members').create({
+          name: member.name,
+          phone: member.phone,
+          joinDate: member.joinDate instanceof Date
+            ? member.joinDate.toISOString().split('T')[0]
+            : member.joinDate,
+          owner: pb.authStore.model?.id,
+        }),
+      )
+      await db.members.add({ ...member, pbId: record.id, syncStatus: 'synced' })
+    } catch {
+      await db.members.add(member)
+      queueSync(id)
+    }
+
     await get().loadAll()
   },
 
@@ -96,8 +112,31 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       syncStatus: 'pending',
     }
 
-    await db.cycles.add(cycle)
-    queueSync(id)
+    try {
+      const record = await tryWithRetry(() =>
+        pb.collection('rosca_cycles').create({
+          name: cycle.name,
+          amountPerPerson: cycle.amountPerPerson,
+          frequency: cycle.frequency,
+          startDate: cycle.startDate instanceof Date
+            ? cycle.startDate.toISOString().split('T')[0]
+            : cycle.startDate,
+          endDate: cycle.endDate
+            ? (cycle.endDate instanceof Date ? cycle.endDate.toISOString().split('T')[0] : cycle.endDate)
+            : null,
+          status: cycle.status,
+          memberIds: cycle.memberIds,
+          payoutOrder: cycle.payoutOrder,
+          currentRound: cycle.currentRound,
+          owner: pb.authStore.model?.id,
+        }),
+      )
+      await db.cycles.add({ ...cycle, pbId: record.id, syncStatus: 'synced' })
+    } catch {
+      await db.cycles.add(cycle)
+      queueSync(id)
+    }
+
     await get().loadAll()
   },
 
@@ -110,6 +149,32 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       createdAt: now,
       updatedAt: now,
       syncStatus: 'pending',
+    }
+
+    const member = await db.members.get(contribution.memberId)
+    const cycle = await db.cycles.get(contribution.cycleId)
+
+    if (member?.pbId && cycle?.pbId) {
+      try {
+        const record = await tryWithRetry(() =>
+          pb.collection('rosca_contributions').create({
+            cycleId: cycle.pbId,
+            memberId: member.pbId,
+            amount: contribution.amount,
+            date: contribution.date instanceof Date
+              ? contribution.date.toISOString().split('T')[0]
+              : contribution.date,
+            method: contribution.method,
+            notes: contribution.notes ?? '',
+            owner: pb.authStore.model?.id,
+          }),
+        )
+        await db.contributions.add({ ...contribution, pbId: record.id, syncStatus: 'synced' })
+        await get().loadAll()
+        return
+      } catch {
+        // fall through to local save
+      }
     }
 
     await db.contributions.add(contribution)
@@ -128,6 +193,31 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       syncStatus: 'pending',
     }
 
+    const member = await db.members.get(payout.memberId)
+    const cycle = await db.cycles.get(payout.cycleId)
+
+    if (member?.pbId && cycle?.pbId) {
+      try {
+        const record = await tryWithRetry(() =>
+          pb.collection('rosca_payouts').create({
+            cycleId: cycle.pbId,
+            memberId: member.pbId,
+            amount: payout.amount,
+            roundNumber: payout.roundNumber,
+            date: payout.date instanceof Date
+              ? payout.date.toISOString().split('T')[0]
+              : payout.date,
+            owner: pb.authStore.model?.id,
+          }),
+        )
+        await db.payouts.add({ ...payout, pbId: record.id, syncStatus: 'synced' })
+        await get().loadAll()
+        return
+      } catch {
+        // fall through to local save
+      }
+    }
+
     await db.payouts.add(payout)
     queueSync(id)
     await get().loadAll()
@@ -136,16 +226,36 @@ export const useCycleStore = create<CycleState>((set, get) => ({
   advanceRound: async (cycleId) => {
     const cycle = get().cycles.find((c) => c.id === cycleId)
     if (!cycle) return
-    await db.cycles.update(cycleId, {
-      currentRound: cycle.currentRound + 1,
-      updatedAt: new Date(),
-      syncStatus: 'pending',
-    })
+    const nextRound = cycle.currentRound + 1
+    const updatedAt = new Date()
+
+    if (cycle.pbId) {
+      try {
+        await tryWithRetry(() =>
+          pb.collection('rosca_cycles').update(cycle.pbId!, { currentRound: nextRound }),
+        )
+        await db.cycles.update(cycleId, { currentRound: nextRound, updatedAt, syncStatus: 'synced' })
+        await get().loadAll()
+        return
+      } catch {
+        // fall through to local save
+      }
+    }
+
+    await db.cycles.update(cycleId, { currentRound: nextRound, updatedAt, syncStatus: 'pending' })
     queueSync(cycleId)
     await get().loadAll()
   },
 
   deleteContribution: async (id) => {
+    const contribution = await db.contributions.get(id)
+    if (contribution?.pbId) {
+      try {
+        await tryWithRetry(() => pb.collection('rosca_contributions').delete(contribution.pbId!))
+      } catch {
+        // best-effort — local delete always proceeds
+      }
+    }
     await db.contributions.delete(id)
     await get().loadAll()
   },

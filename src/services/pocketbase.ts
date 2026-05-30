@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase'
 import { db } from '../db/dexie'
 
 const POCKETBASE_URL =
-  import.meta.env.VITE_POCKETBASE_URL || 'https://your-pb-instance.com'
+  import.meta.env.VITE_POCKETBASE_URL // || 'https://pocketbaese.johnxlabs.de'
 
 export const pb = new PocketBase(POCKETBASE_URL)
 

@@ -14,7 +14,7 @@ export default function Members() {
   const handleSubmit = async (values: MemberFormValues) => {
     await addMember({
       name: values.name.trim(),
-      phone: values.phone.trim(),
+      phone: (values.phone ?? '').trim(),
       joinDate: new Date(values.joinDate),
     })
   }

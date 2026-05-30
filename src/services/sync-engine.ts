@@ -3,6 +3,27 @@ import { db } from '../db/dexie'
 import type { Contribution, Cycle, Member, Payout } from '../db/dexie-schema'
 import { pb } from './pocketbase'
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export async function tryWithRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  delayMs = 500,
+): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastError = err
+      if (attempt < maxAttempts) await sleep(delayMs)
+    }
+  }
+  throw lastError
+}
+
 const syncQueue = new Set<string>()
 let isSyncing = false
 let syncTimeout: ReturnType<typeof setTimeout> | undefined
@@ -66,9 +87,9 @@ async function syncMember(member: Member): Promise<void> {
   }
 
   if (member.pbId) {
-    await pb.collection('members').update(member.pbId, data)
+    await pb.collection('rosca_members').update(member.pbId, data)
   } else {
-    const record = await pb.collection('members').create(data)
+    const record = await pb.collection('rosca_members').create(data)
     await db.members.update(member.id, { pbId: record.id, syncStatus: 'synced' })
     return
   }
@@ -91,9 +112,9 @@ async function syncCycle(cycle: Cycle): Promise<void> {
   }
 
   if (cycle.pbId) {
-    await pb.collection('cycles').update(cycle.pbId, data)
+    await pb.collection('rosca_cycles').update(cycle.pbId, data)
   } else {
-    const record = await pb.collection('cycles').create(data)
+    const record = await pb.collection('rosca_cycles').create(data)
     await db.cycles.update(cycle.id, { pbId: record.id, syncStatus: 'synced' })
     return
   }
@@ -121,9 +142,9 @@ async function syncContribution(contribution: Contribution): Promise<void> {
   }
 
   if (contribution.pbId) {
-    await pb.collection('contributions').update(contribution.pbId, data)
+    await pb.collection('rosca_contributions').update(contribution.pbId, data)
   } else {
-    const record = await pb.collection('contributions').create(data)
+    const record = await pb.collection('rosca_contributions').create(data)
     await db.contributions.update(contribution.id, {
       pbId: record.id,
       syncStatus: 'synced',
@@ -153,9 +174,9 @@ async function syncPayout(payout: Payout): Promise<void> {
   }
 
   if (payout.pbId) {
-    await pb.collection('payouts').update(payout.pbId, data)
+    await pb.collection('rosca_payouts').update(payout.pbId, data)
   } else {
-    const record = await pb.collection('payouts').create(data)
+    const record = await pb.collection('rosca_payouts').create(data)
     await db.payouts.update(payout.id, { pbId: record.id, syncStatus: 'synced' })
     return
   }
@@ -171,10 +192,10 @@ export async function pullFromServer(): Promise<void> {
   const filter = lastSync ? `updated >= "${lastSync.toISOString()}"` : ''
 
   await Promise.all([
-    pullCollection('members', filter),
-    pullCollection('cycles', filter),
-    pullCollection('contributions', filter),
-    pullCollection('payouts', filter),
+    pullCollection('rosca_members', filter),
+    pullCollection('rosca_cycles', filter),
+    pullCollection('rosca_contributions', filter),
+    pullCollection('rosca_payouts', filter),
   ])
 
   await db.settings.update('settings', { lastSyncAt: new Date() })
@@ -206,7 +227,7 @@ function mapToLocal(collection: string, record: any): any {
   }
 
   switch (collection) {
-    case 'members':
+    case 'rosca_members':
       return {
         id: record.id,
         name: record.name,
@@ -214,7 +235,7 @@ function mapToLocal(collection: string, record: any): any {
         joinDate: new Date(record.joinDate),
         ...base,
       }
-    case 'cycles':
+    case 'rosca_cycles':
       return {
         id: record.id,
         name: record.name,
@@ -228,7 +249,7 @@ function mapToLocal(collection: string, record: any): any {
         currentRound: record.currentRound,
         ...base,
       }
-    case 'contributions':
+    case 'rosca_contributions':
       return {
         id: record.id,
         cycleId: record.cycleId,
@@ -239,7 +260,7 @@ function mapToLocal(collection: string, record: any): any {
         notes: record.notes,
         ...base,
       }
-    case 'payouts':
+    case 'rosca_payouts':
       return {
         id: record.id,
         cycleId: record.cycleId,
@@ -270,7 +291,7 @@ export async function fullRestore(): Promise<void> {
 export function startRealtimeSync(): void {
   if (!pb.authStore.isValid) return
 
-  const collections = ['members', 'cycles', 'contributions', 'payouts']
+  const collections = ['rosca_members', 'rosca_cycles', 'rosca_contributions', 'rosca_payouts']
 
   collections.forEach((collection) => {
     void pb
