@@ -70,6 +70,7 @@ export default function Auth() {
           </button>
         </form>
 
+        {/*
         <button
           type="button"
           onClick={() => setIsLogin((value) => !value)}
@@ -77,6 +78,7 @@ export default function Auth() {
         >
           {isLogin ? t('auth.toggleToSignup') : t('auth.toggleToSignin')}
         </button>
+        */}
       </div>
     </div>
   )
