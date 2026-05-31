@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useAuthStore } from '../stores/useAuthStore'
 import { useCycleStore } from '../stores/useCycleStore'
+import { APP_VERSION } from '../utils/version'
 
 export default function Settings() {
   const { t, i18n: i18nInstance } = useTranslation()
@@ -60,6 +61,8 @@ export default function Settings() {
       >
         {t('settings.logout')}
       </button>
+
+      <p className="pt-2 text-xs text-text-secondary/80 text-center">v{APP_VERSION}</p>
     </section>
   )
 }

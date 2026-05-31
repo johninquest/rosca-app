@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/useAuthStore'
+import { APP_VERSION } from '../utils/version'
 
 export default function Auth() {
   const { t } = useTranslation()
@@ -29,7 +30,7 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-dvh bg-bg flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-bg flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-border">
         <h1 className="text-2xl font-bold text-center mb-1 text-text-primary">{t('auth.title')}</h1>
         <p className="text-text-secondary text-center text-sm mb-6">{t('auth.subtitle')}</p>
@@ -44,7 +45,7 @@ export default function Auth() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-border focus:ring-2 focus:ring-text-primary outline-none"
-              placeholder="admin@email.com"
+              placeholder="user@email.cm"
               required
             />
           </div>
@@ -80,6 +81,7 @@ export default function Auth() {
         </button>
         */}
       </div>
+      <p className="mt-4 text-xs text-text-secondary/80 text-center">v{APP_VERSION}</p>
     </div>
   )
 }

@@ -46,7 +46,7 @@ export default function CycleForm({
           id="cycle-name"
           {...register('name', { required: 'Name is required' })}
           className="w-full px-3 py-2.5 border border-border rounded-lg"
-          placeholder="Tontine Famille 2026"
+          placeholder="Family Njangi 2026"
         />
         {errors.name && <p className="text-xs text-red-700 mt-1">{errors.name.message}</p>}
       </div>
