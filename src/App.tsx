@@ -36,6 +36,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) {
       stopRealtimeSync()
+      useCycleStore.setState({ cycles: [], members: [], contributions: [], payouts: [] })
       return
     }
 

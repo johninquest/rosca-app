@@ -1,5 +1,3 @@
-import type { SyncStatus } from '../db/dexie-schema'
-
 const LOCALE = 'fr-CM'
 
 export function formatAmount(amount: number | null | undefined, currency: 'XAF' | 'USD' | 'EUR' = 'XAF'): string {
@@ -37,17 +35,4 @@ export function formatDate(value: Date | string | null | undefined): string {
     month: 'short',
     year: 'numeric',
   })
-}
-
-export function formatSyncStatus(status: SyncStatus): string {
-  switch (status) {
-    case 'synced':
-      return 'Synced'
-    case 'pending':
-      return 'Pending'
-    case 'conflict':
-      return 'Conflict'
-    default:
-      return 'Unknown'
-  }
 }

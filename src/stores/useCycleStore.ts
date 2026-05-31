@@ -1,28 +1,59 @@
+﻿import type { RecordModel } from 'pocketbase'
 import { create } from 'zustand'
-import { db } from '../db/dexie'
-import type { Contribution, Cycle, Member, Payout } from '../db/dexie-schema'
-import { pullFromServer, queueSync, tryWithRetry } from '../services/sync-engine'
 import { pb } from '../services/pocketbase'
+import type { Contribution, Cycle, Member, Payout } from '../types'
 
-type NewMember = Omit<
-  Member,
-  'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'pbId'
->
+type NewMember = Omit<Member, 'id'>
+type NewCycle = Omit<Cycle, 'id' | 'currentRound'>
+type NewContribution = Omit<Contribution, 'id'>
+type NewPayout = Omit<Payout, 'id'>
 
-type NewCycle = Omit<
-  Cycle,
-  'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'pbId' | 'currentRound'
->
+export function mapMember(r: RecordModel): Member {
+  return {
+    id: r.id,
+    name: r.name,
+    phone: r.phone,
+    joinDate: new Date(r.joinDate),
+  }
+}
 
-type NewContribution = Omit<
-  Contribution,
-  'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'pbId'
->
+export function mapCycle(r: RecordModel): Cycle {
+  return {
+    id: r.id,
+    name: r.name,
+    amountPerPerson: r.amountPerPerson,
+    frequency: r.frequency,
+    startDate: new Date(r.startDate),
+    endDate: r.endDate ? new Date(r.endDate) : undefined,
+    status: r.status,
+    memberIds: r.memberIds,
+    payoutOrder: r.payoutOrder,
+    currentRound: r.currentRound,
+  }
+}
 
-type NewPayout = Omit<
-  Payout,
-  'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'pbId'
->
+export function mapContribution(r: RecordModel): Contribution {
+  return {
+    id: r.id,
+    cycleId: r.cycleId,
+    memberId: r.memberId,
+    amount: r.amount,
+    date: new Date(r.date),
+    method: r.method,
+    notes: r.notes || undefined,
+  }
+}
+
+export function mapPayout(r: RecordModel): Payout {
+  return {
+    id: r.id,
+    cycleId: r.cycleId,
+    memberId: r.memberId,
+    amount: r.amount,
+    roundNumber: r.roundNumber,
+    date: new Date(r.date),
+  }
+}
 
 interface CycleState {
   cycles: Cycle[]
@@ -30,8 +61,6 @@ interface CycleState {
   contributions: Contribution[]
   payouts: Payout[]
   isLoading: boolean
-  isSyncing: boolean
-  pendingCount: number
   loadAll: () => Promise<void>
   addMember: (data: NewMember) => Promise<void>
   addCycle: (data: NewCycle) => Promise<void>
@@ -41,7 +70,6 @@ interface CycleState {
   deleteContribution: (id: string) => Promise<void>
   getMemberTotal: (memberId: string, cycleId: string) => number
   getCycleTotal: (cycleId: string) => number
-  refreshFromServer: () => Promise<void>
 }
 
 export const useCycleStore = create<CycleState>((set, get) => ({
@@ -50,235 +78,122 @@ export const useCycleStore = create<CycleState>((set, get) => ({
   contributions: [],
   payouts: [],
   isLoading: false,
-  isSyncing: false,
-  pendingCount: 0,
 
   loadAll: async () => {
     set({ isLoading: true })
-    const [cycles, members, contributions, payouts] = await Promise.all([
-      db.cycles.toArray(),
-      db.members.toArray(),
-      db.contributions.toArray(),
-      db.payouts.toArray(),
-    ])
-
-    const pendingCount = [...members, ...cycles, ...contributions, ...payouts].filter(
-      (record) => record.syncStatus === 'pending',
-    ).length
-
-    set({ cycles, members, contributions, payouts, pendingCount, isLoading: false })
+    try {
+      const [memberRecords, cycleRecords, contributionRecords, payoutRecords] = await Promise.all([
+        pb.collection('rosca_members').getFullList({ sort: 'name' }),
+        pb.collection('rosca_cycles').getFullList({ sort: '-created' }),
+        pb.collection('rosca_contributions').getFullList({ sort: '-date' }),
+        pb.collection('rosca_payouts').getFullList({ sort: '-date' }),
+      ])
+      set({
+        members: memberRecords.map(mapMember),
+        cycles: cycleRecords.map(mapCycle),
+        contributions: contributionRecords.map(mapContribution),
+        payouts: payoutRecords.map(mapPayout),
+        isLoading: false,
+      })
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
   },
 
   addMember: async (data) => {
-    const id = crypto.randomUUID()
-    const now = new Date()
-    const member: Member = {
-      ...data,
-      id,
-      createdAt: now,
-      updatedAt: now,
-      syncStatus: 'pending',
-    }
-
-    try {
-      const record = await tryWithRetry(() =>
-        pb.collection('rosca_members').create({
-          name: member.name,
-          phone: member.phone,
-          joinDate: member.joinDate instanceof Date
-            ? member.joinDate.toISOString().split('T')[0]
-            : member.joinDate,
-          owner: pb.authStore.model?.id,
-        }),
-      )
-      await db.members.add({ ...member, pbId: record.id, syncStatus: 'synced' })
-    } catch {
-      await db.members.add(member)
-      queueSync(id)
-    }
-
-    await get().loadAll()
+    const record = await pb.collection('rosca_members').create({
+      name: data.name,
+      phone: data.phone,
+      joinDate: data.joinDate instanceof Date
+        ? data.joinDate.toISOString().split('T')[0]
+        : data.joinDate,
+      owner: pb.authStore.record?.id,
+    })
+    const member = mapMember(record)
+    set((state) => ({ members: [...state.members, member] }))
   },
 
   addCycle: async (data) => {
-    const id = crypto.randomUUID()
-    const now = new Date()
-    const cycle: Cycle = {
-      ...data,
-      id,
+    const record = await pb.collection('rosca_cycles').create({
+      name: data.name,
+      amountPerPerson: data.amountPerPerson,
+      frequency: data.frequency,
+      startDate: data.startDate instanceof Date
+        ? data.startDate.toISOString().split('T')[0]
+        : data.startDate,
+      endDate: data.endDate
+        ? (data.endDate instanceof Date ? data.endDate.toISOString().split('T')[0] : data.endDate)
+        : null,
+      status: data.status,
+      memberIds: data.memberIds,
+      payoutOrder: data.payoutOrder,
       currentRound: 1,
-      createdAt: now,
-      updatedAt: now,
-      syncStatus: 'pending',
-    }
-
-    try {
-      const record = await tryWithRetry(() =>
-        pb.collection('rosca_cycles').create({
-          name: cycle.name,
-          amountPerPerson: cycle.amountPerPerson,
-          frequency: cycle.frequency,
-          startDate: cycle.startDate instanceof Date
-            ? cycle.startDate.toISOString().split('T')[0]
-            : cycle.startDate,
-          endDate: cycle.endDate
-            ? (cycle.endDate instanceof Date ? cycle.endDate.toISOString().split('T')[0] : cycle.endDate)
-            : null,
-          status: cycle.status,
-          memberIds: cycle.memberIds,
-          payoutOrder: cycle.payoutOrder,
-          currentRound: cycle.currentRound,
-          owner: pb.authStore.model?.id,
-        }),
-      )
-      await db.cycles.add({ ...cycle, pbId: record.id, syncStatus: 'synced' })
-    } catch {
-      await db.cycles.add(cycle)
-      queueSync(id)
-    }
-
-    await get().loadAll()
+      owner: pb.authStore.record?.id,
+    })
+    const cycle = mapCycle(record)
+    set((state) => ({ cycles: [cycle, ...state.cycles] }))
   },
 
   addContribution: async (data) => {
-    const id = crypto.randomUUID()
-    const now = new Date()
-    const contribution: Contribution = {
-      ...data,
-      id,
-      createdAt: now,
-      updatedAt: now,
-      syncStatus: 'pending',
-    }
-
-    const member = await db.members.get(contribution.memberId)
-    const cycle = await db.cycles.get(contribution.cycleId)
-
-    if (member?.pbId && cycle?.pbId) {
-      try {
-        const record = await tryWithRetry(() =>
-          pb.collection('rosca_contributions').create({
-            cycleId: cycle.pbId,
-            memberId: member.pbId,
-            amount: contribution.amount,
-            date: contribution.date instanceof Date
-              ? contribution.date.toISOString().split('T')[0]
-              : contribution.date,
-            method: contribution.method,
-            notes: contribution.notes ?? '',
-            owner: pb.authStore.model?.id,
-          }),
-        )
-        await db.contributions.add({ ...contribution, pbId: record.id, syncStatus: 'synced' })
-        await get().loadAll()
-        return
-      } catch {
-        // fall through to local save
-      }
-    }
-
-    await db.contributions.add(contribution)
-    queueSync(id)
-    await get().loadAll()
+    const record = await pb.collection('rosca_contributions').create({
+      cycleId: data.cycleId,
+      memberId: data.memberId,
+      amount: data.amount,
+      date: data.date instanceof Date
+        ? data.date.toISOString().split('T')[0]
+        : data.date,
+      method: data.method,
+      notes: data.notes ?? '',
+      owner: pb.authStore.record?.id,
+    })
+    const contribution = mapContribution(record)
+    set((state) => ({ contributions: [contribution, ...state.contributions] }))
   },
 
   addPayout: async (data) => {
-    const id = crypto.randomUUID()
-    const now = new Date()
-    const payout: Payout = {
-      ...data,
-      id,
-      createdAt: now,
-      updatedAt: now,
-      syncStatus: 'pending',
-    }
-
-    const member = await db.members.get(payout.memberId)
-    const cycle = await db.cycles.get(payout.cycleId)
-
-    if (member?.pbId && cycle?.pbId) {
-      try {
-        const record = await tryWithRetry(() =>
-          pb.collection('rosca_payouts').create({
-            cycleId: cycle.pbId,
-            memberId: member.pbId,
-            amount: payout.amount,
-            roundNumber: payout.roundNumber,
-            date: payout.date instanceof Date
-              ? payout.date.toISOString().split('T')[0]
-              : payout.date,
-            owner: pb.authStore.model?.id,
-          }),
-        )
-        await db.payouts.add({ ...payout, pbId: record.id, syncStatus: 'synced' })
-        await get().loadAll()
-        return
-      } catch {
-        // fall through to local save
-      }
-    }
-
-    await db.payouts.add(payout)
-    queueSync(id)
-    await get().loadAll()
+    const record = await pb.collection('rosca_payouts').create({
+      cycleId: data.cycleId,
+      memberId: data.memberId,
+      amount: data.amount,
+      roundNumber: data.roundNumber,
+      date: data.date instanceof Date
+        ? data.date.toISOString().split('T')[0]
+        : data.date,
+      owner: pb.authStore.record?.id,
+    })
+    const payout = mapPayout(record)
+    set((state) => ({ payouts: [payout, ...state.payouts] }))
   },
 
   advanceRound: async (cycleId) => {
     const cycle = get().cycles.find((c) => c.id === cycleId)
     if (!cycle) return
     const nextRound = cycle.currentRound + 1
-    const updatedAt = new Date()
-
-    if (cycle.pbId) {
-      try {
-        await tryWithRetry(() =>
-          pb.collection('rosca_cycles').update(cycle.pbId!, { currentRound: nextRound }),
-        )
-        await db.cycles.update(cycleId, { currentRound: nextRound, updatedAt, syncStatus: 'synced' })
-        await get().loadAll()
-        return
-      } catch {
-        // fall through to local save
-      }
-    }
-
-    await db.cycles.update(cycleId, { currentRound: nextRound, updatedAt, syncStatus: 'pending' })
-    queueSync(cycleId)
-    await get().loadAll()
+    await pb.collection('rosca_cycles').update(cycleId, { currentRound: nextRound })
+    set((state) => ({
+      cycles: state.cycles.map((c) =>
+        c.id === cycleId ? { ...c, currentRound: nextRound } : c,
+      ),
+    }))
   },
 
   deleteContribution: async (id) => {
-    const contribution = await db.contributions.get(id)
-    if (contribution?.pbId) {
-      try {
-        await tryWithRetry(() => pb.collection('rosca_contributions').delete(contribution.pbId!))
-      } catch {
-        // best-effort — local delete always proceeds
-      }
-    }
-    await db.contributions.delete(id)
-    await get().loadAll()
+    await pb.collection('rosca_contributions').delete(id)
+    set((state) => ({
+      contributions: state.contributions.filter((c) => c.id !== id),
+    }))
   },
 
   getMemberTotal: (memberId, cycleId) => {
     return get()
-      .contributions.filter(
-        (contribution) =>
-          contribution.memberId === memberId && contribution.cycleId === cycleId,
-      )
-      .reduce((sum, contribution) => sum + contribution.amount, 0)
+      .contributions.filter((c) => c.memberId === memberId && c.cycleId === cycleId)
+      .reduce((sum, c) => sum + c.amount, 0)
   },
 
   getCycleTotal: (cycleId) => {
     return get()
-      .contributions.filter((contribution) => contribution.cycleId === cycleId)
-      .reduce((sum, contribution) => sum + contribution.amount, 0)
-  },
-
-  refreshFromServer: async () => {
-    set({ isSyncing: true })
-    await pullFromServer()
-    await get().loadAll()
-    set({ isSyncing: false })
+      .contributions.filter((c) => c.cycleId === cycleId)
+      .reduce((sum, c) => sum + c.amount, 0)
   },
 }))

@@ -1,7 +1,6 @@
-import { create } from 'zustand'
-import { db } from '../db/dexie'
+﻿import { create } from 'zustand'
 import { pb, restoreAuth } from '../services/pocketbase'
-import { fullRestore } from '../services/sync-engine'
+import { useCycleStore } from './useCycleStore'
 
 interface AuthUser {
   id: string
@@ -26,13 +25,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   init: async () => {
     const isValid = await restoreAuth()
 
-    if (isValid && pb.authStore.model) {
+    if (isValid && pb.authStore.record) {
       set({
         isAuthenticated: true,
         isLoading: false,
         user: {
-          id: pb.authStore.model.id,
-          email: pb.authStore.model.email,
+          id: pb.authStore.record.id,
+          email: pb.authStore.record.email,
         },
       })
       return
@@ -50,8 +49,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: auth.record.email,
       },
     })
-
-    await fullRestore()
   },
 
   register: async (email, password) => {
@@ -65,13 +62,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     pb.authStore.clear()
-    await Promise.all([
-      db.members.clear(),
-      db.cycles.clear(),
-      db.contributions.clear(),
-      db.payouts.clear(),
-    ])
-
+    useCycleStore.setState({
+      cycles: [],
+      members: [],
+      contributions: [],
+      payouts: [],
+    })
     set({ isAuthenticated: false, user: null })
   },
 }))

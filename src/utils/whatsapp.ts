@@ -1,4 +1,4 @@
-import type { Contribution, Cycle, Member, Payout } from '../db/dexie-schema'
+import type { Contribution, Cycle, Member, Payout } from '../types'
 import { formatAmount } from './format'
 
 interface BuildRoscaWhatsAppInput {

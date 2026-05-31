@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAmount, formatDate, formatSyncStatus, todayISO } from '../utils/format'
+import { formatAmount, formatDate, todayISO } from '../utils/format'
 
 describe('formatAmount', () => {
   it('formats XAF without decimals', () => {
@@ -27,13 +27,5 @@ describe('formatDate', () => {
 
   it('returns N/A for empty value', () => {
     expect(formatDate(undefined)).toBe('N/A')
-  })
-})
-
-describe('formatSyncStatus', () => {
-  it('maps all sync statuses to labels', () => {
-    expect(formatSyncStatus('synced')).toBe('Synced')
-    expect(formatSyncStatus('pending')).toBe('Pending')
-    expect(formatSyncStatus('conflict')).toBe('Conflict')
   })
 })

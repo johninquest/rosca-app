@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { Contribution, Cycle, Member } from '../db/dexie-schema'
+import type { Contribution, Cycle, Member } from '../types'
 import { formatAmount, formatDate } from './format'
 
 function safeFilename(name: string): string {

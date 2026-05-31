@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import MemberForm, { type MemberFormValues } from '../components/MemberForm'
 import { useCycleStore } from '../stores/useCycleStore'
@@ -11,12 +11,19 @@ export default function Members() {
     void loadAll()
   }, [loadAll])
 
+  const [error, setError] = useState<string | null>(null)
+
   const handleSubmit = async (values: MemberFormValues) => {
-    await addMember({
-      name: values.name.trim(),
-      phone: (values.phone ?? '').trim(),
-      joinDate: new Date(values.joinDate),
-    })
+    setError(null)
+    try {
+      await addMember({
+        name: values.name.trim(),
+        phone: (values.phone ?? '').trim(),
+        joinDate: new Date(values.joinDate),
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save member. Please try again.')
+    }
   }
 
   return (
@@ -25,6 +32,9 @@ export default function Members() {
 
       <div className="bg-white border border-border rounded-xl p-4">
         <p className="text-sm font-medium text-text-primary mb-3">{t('members.add')}</p>
+        {error && (
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mb-3">{error}</p>
+        )}
         <MemberForm onSubmit={handleSubmit} submitLabel={t('members.add')} />
       </div>
 

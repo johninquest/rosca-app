@@ -1,14 +1,8 @@
-export type SyncStatus = 'synced' | 'pending' | 'conflict'
-
 export interface Member {
   id: string
   name: string
   phone: string
   joinDate: Date
-  createdAt: Date
-  updatedAt: Date
-  syncStatus: SyncStatus
-  pbId?: string
 }
 
 export interface Cycle {
@@ -22,10 +16,6 @@ export interface Cycle {
   memberIds: string[]
   payoutOrder: string[]
   currentRound: number
-  createdAt: Date
-  updatedAt: Date
-  syncStatus: SyncStatus
-  pbId?: string
 }
 
 export interface Contribution {
@@ -36,10 +26,6 @@ export interface Contribution {
   date: Date
   method: 'cash' | 'mtn' | 'orange' | 'other'
   notes?: string
-  createdAt: Date
-  updatedAt: Date
-  syncStatus: SyncStatus
-  pbId?: string
 }
 
 export interface Payout {
@@ -49,16 +35,4 @@ export interface Payout {
   amount: number
   roundNumber: number
   date: Date
-  createdAt: Date
-  updatedAt: Date
-  syncStatus: SyncStatus
-  pbId?: string
-}
-
-export interface AppSettings {
-  id: 'settings'
-  language: 'fr' | 'en'
-  lastSyncAt?: Date
-  adminEmail?: string
-  pbToken?: string
 }

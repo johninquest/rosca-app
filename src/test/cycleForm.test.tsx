@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom/vitest'
 import CycleForm from '../components/CycleForm'
-import type { Member } from '../db/dexie-schema'
+import type { Member } from '../types'
 
 const members: Member[] = [
   {
@@ -11,9 +11,6 @@ const members: Member[] = [
     name: 'Marie',
     phone: '+237699000000',
     joinDate: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    syncStatus: 'synced',
   },
 ]
 

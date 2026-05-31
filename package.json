@@ -1,7 +1,7 @@
 {
   "name": "rosca-app",
   "private": true,
-  "version": "0.5.30",
+  "version": "0.5.31",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "date-fns": "^3.6.0",
-    "dexie": "^4.0.8",
     "i18next": "^23.16.8",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",

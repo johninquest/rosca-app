@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
-import type { Contribution, Cycle, Member, Payout } from '../db/dexie-schema'
+import type { Contribution, Cycle, Member, Payout } from '../types'
 
 const cycle: Cycle = {
   id: 'c1',
@@ -12,9 +12,6 @@ const cycle: Cycle = {
   memberIds: ['m1', 'm2'],
   payoutOrder: ['m1', 'm2'],
   currentRound: 1,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  syncStatus: 'synced',
 }
 
 const members: Member[] = [
@@ -23,18 +20,12 @@ const members: Member[] = [
     name: 'Marie',
     phone: '+237699000000',
     joinDate: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    syncStatus: 'synced',
   },
   {
     id: 'm2',
     name: 'Jean',
     phone: '+237677000000',
     joinDate: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    syncStatus: 'synced',
   },
 ]
 
@@ -46,9 +37,6 @@ const contributions: Contribution[] = [
     amount: 10000,
     date: new Date('2026-01-02'),
     method: 'cash',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    syncStatus: 'synced',
   },
 ]
 
@@ -60,9 +48,6 @@ const payouts: Payout[] = [
     amount: 20000,
     roundNumber: 1,
     date: new Date('2026-01-30'),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    syncStatus: 'synced',
   },
 ]
 

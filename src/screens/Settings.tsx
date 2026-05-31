@@ -6,8 +6,13 @@ import { useCycleStore } from '../stores/useCycleStore'
 export default function Settings() {
   const { t, i18n: i18nInstance } = useTranslation()
   const { logout } = useAuthStore()
-  const { isSyncing, refreshFromServer } = useCycleStore()
+  const { isLoading, loadAll } = useCycleStore()
   const currentLanguage = i18nInstance.language
+
+  const changeLanguage = (lang: string) => {
+    localStorage.setItem('language', lang)
+    void i18n.changeLanguage(lang)
+  }
 
   return (
     <section className="space-y-4">
@@ -18,7 +23,7 @@ export default function Settings() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => void i18n.changeLanguage('fr')}
+            onClick={() => changeLanguage('fr')}
             className={`px-3 py-2 rounded-lg border ${
               currentLanguage.startsWith('fr') ? 'bg-text-primary text-white border-text-primary' : 'border-border'
             }`}
@@ -27,7 +32,7 @@ export default function Settings() {
           </button>
           <button
             type="button"
-            onClick={() => void i18n.changeLanguage('en')}
+            onClick={() => changeLanguage('en')}
             className={`px-3 py-2 rounded-lg border ${
               currentLanguage.startsWith('en') ? 'bg-text-primary text-white border-text-primary' : 'border-border'
             }`}
@@ -39,11 +44,11 @@ export default function Settings() {
 
       <button
         type="button"
-        onClick={() => void refreshFromServer()}
-        disabled={isSyncing}
+        onClick={() => void loadAll()}
+        disabled={isLoading}
         className="w-full py-3 rounded-xl border border-border"
       >
-        {isSyncing ? t('common.loading') : t('settings.manualSync')}
+        {isLoading ? t('common.loading') : t('settings.manualSync')}
       </button>
 
       <button

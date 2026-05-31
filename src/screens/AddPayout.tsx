@@ -35,19 +35,24 @@ export default function AddPayout() {
 
   const cycleMembers = members.filter((m) => cycle.memberIds.includes(m.id))
 
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!memberId || !amount) return
-
-    await addPayout({
-      cycleId: cycle.id,
-      memberId,
-      amount: Number(amount),
-      roundNumber: cycle.currentRound,
-      date: new Date(date),
-    })
-
-    openCycleDetail(cycle.id)
+    setSubmitError(null)
+    try {
+      await addPayout({
+        cycleId: cycle.id,
+        memberId,
+        amount: Number(amount),
+        roundNumber: cycle.currentRound,
+        date: new Date(date),
+      })
+      openCycleDetail(cycle.id)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save payout. Please try again.')
+    }
   }
 
   return (
@@ -119,6 +124,10 @@ export default function AddPayout() {
         <p className="text-xs text-text-secondary">
           {t('cycle.round')} {cycle.currentRound} / {cycle.payoutOrder.length}
         </p>
+
+        {submitError && (
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{submitError}</p>
+        )}
 
         <button
           type="submit"

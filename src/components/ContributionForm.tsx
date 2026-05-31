@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form'
-import type { Member } from '../db/dexie-schema'
+import type { Member } from '../types'
 
 type ContributionMethod = 'cash' | 'mtn' | 'orange' | 'other'
 

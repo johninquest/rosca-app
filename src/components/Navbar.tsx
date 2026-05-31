@@ -1,5 +1,4 @@
 import { useAuthStore } from '../stores/useAuthStore'
-import { useCycleStore } from '../stores/useCycleStore'
 import { useAppStore } from '../stores/useAppStore'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
@@ -64,7 +63,6 @@ interface NavbarProps {
 export default function Navbar({ showBack = false }: NavbarProps) {
   const isOnline = useOnlineStatus()
   const { user, logout } = useAuthStore()
-  const { pendingCount } = useCycleStore()
   const { goDashboard, setScreen } = useAppStore()
 
   const onBack = () => goDashboard()
@@ -94,11 +92,6 @@ export default function Navbar({ showBack = false }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            {pendingCount > 0 && (
-              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
-                {pendingCount} pending
-              </span>
-            )}
 
             {user && (
               <button
@@ -131,7 +124,7 @@ export default function Navbar({ showBack = false }: NavbarProps) {
 
       {!isOnline && (
         <div className="bg-text-primary text-white text-xs text-center py-1.5 px-4" role="status">
-          You are offline. Changes will sync when reconnected.
+          You are offline. Data may not be up to date.
         </div>
       )}
     </>
