@@ -1,13 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import i18n from '../i18n'
 import { useAuthStore } from '../stores/useAuthStore'
-import { useCycleStore } from '../stores/useCycleStore'
 import { APP_VERSION } from '../utils/version'
 
 export default function Settings() {
   const { t, i18n: i18nInstance } = useTranslation()
   const { logout } = useAuthStore()
-  const { isLoading, loadAll } = useCycleStore()
   const currentLanguage = i18nInstance.language
 
   const changeLanguage = (lang: string) => {
@@ -42,15 +40,6 @@ export default function Settings() {
           </button>
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={() => void loadAll()}
-        disabled={isLoading}
-        className="w-full py-3 rounded-xl border border-border"
-      >
-        {isLoading ? t('common.loading') : t('settings.manualSync')}
-      </button>
 
       <button
         type="button"
