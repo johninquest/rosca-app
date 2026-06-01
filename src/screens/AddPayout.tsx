@@ -6,8 +6,8 @@ import { todayISO } from '../utils/format'
 
 export default function AddPayout() {
   const { t } = useTranslation()
-  const { selectedCycleId, goDashboard, openCycleDetail } = useAppStore()
-  const { cycles, members, addPayout } = useCycleStore()
+  const { selectedCycleId, goBack, openCycleDetail } = useAppStore()
+  const { cycles, members, contributions, addPayout } = useCycleStore()
 
   const cycle = useMemo(
     () => cycles.find((c) => c.id === selectedCycleId) ?? null,
@@ -21,8 +21,14 @@ export default function AddPayout() {
   }, [cycle])
 
   const defaultAmount = useMemo(
-    () => (cycle ? String(cycle.amountPerPerson * cycle.memberIds.length) : ''),
-    [cycle],
+    () => {
+      if (!cycle) return ''
+      const currentRoundCollected = contributions
+        .filter((item) => item.cycleId === cycle.id && item.roundNumber === cycle.currentRound)
+        .reduce((sum, item) => sum + item.amount, 0)
+      return String(currentRoundCollected)
+    },
+    [cycle, contributions],
   )
 
   const [memberId, setMemberId] = useState(defaultBeneficiaryId)
@@ -124,6 +130,9 @@ export default function AddPayout() {
         <p className="text-xs text-text-secondary">
           {t('cycle.round')} {cycle.currentRound} / {cycle.payoutOrder.length}
         </p>
+        <p className="text-xs text-text-secondary">
+          Suggested amount is what has been collected for this month so far.
+        </p>
 
         {submitError && (
           <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{submitError}</p>
@@ -139,7 +148,7 @@ export default function AddPayout() {
 
       <button
         type="button"
-        onClick={goDashboard}
+        onClick={goBack}
         className="w-full py-2.5 border border-border rounded-xl text-sm"
       >
         {t('common.cancel')}

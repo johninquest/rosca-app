@@ -9,7 +9,7 @@ export interface Cycle {
   id: string
   name: string
   amountPerPerson: number
-  frequency: 'weekly' | 'monthly'
+  frequency: 'monthly'
   startDate: Date
   endDate?: Date
   status: 'active' | 'completed'

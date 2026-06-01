@@ -22,7 +22,7 @@ export function mapCycle(r: RecordModel): Cycle {
     id: r.id,
     name: r.name,
     amountPerPerson: r.amountPerPerson,
-    frequency: r.frequency,
+    frequency: 'monthly',
     startDate: new Date(r.startDate),
     endDate: r.endDate ? new Date(r.endDate) : undefined,
     status: r.status,
@@ -68,6 +68,7 @@ interface CycleState {
   addCycle: (data: NewCycle) => Promise<void>
   addMemberToCycle: (cycleId: string, memberId: string) => Promise<void>
   addContribution: (data: NewContribution) => Promise<void>
+  updateContribution: (id: string, data: Partial<NewContribution>) => Promise<void>
   addPayout: (data: NewPayout) => Promise<void>
   advanceRound: (cycleId: string) => Promise<void>
   deleteContribution: (id: string) => Promise<void>
@@ -189,6 +190,26 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     })
     const contribution = mapContribution(record)
     set((state) => ({ contributions: [contribution, ...state.contributions] }))
+  },
+
+  updateContribution: async (id, data) => {
+    const payload: Record<string, unknown> = {}
+    if (data.memberId !== undefined) payload.memberId = data.memberId
+    if (data.amount !== undefined) payload.amount = data.amount
+    if (data.method !== undefined) payload.method = data.method
+    if (data.notes !== undefined) payload.notes = data.notes
+    if (data.roundNumber !== undefined) payload.roundNumber = data.roundNumber
+    if (data.date !== undefined) {
+      payload.date = data.date instanceof Date
+        ? data.date.toISOString().split('T')[0]
+        : data.date
+    }
+
+    const record = await pb.collection('rosca_contributions').update(id, payload)
+    const updated = mapContribution(record)
+    set((state) => ({
+      contributions: state.contributions.map((item) => (item.id === id ? updated : item)),
+    }))
   },
 
   addPayout: async (data) => {

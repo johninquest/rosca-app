@@ -1,12 +1,9 @@
 import { useForm } from 'react-hook-form'
 import type { Member } from '../types'
 
-type Frequency = 'weekly' | 'monthly'
-
 export interface CycleFormValues {
   name: string
   amountPerPerson: number
-  frequency: Frequency
   startDate: string
   memberIds: string[]
 }
@@ -32,7 +29,6 @@ export default function CycleForm({
     defaultValues: {
       name: defaultValues?.name || '',
       amountPerPerson: defaultValues?.amountPerPerson,
-      frequency: defaultValues?.frequency || 'monthly',
       startDate: defaultValues?.startDate || new Date().toISOString().slice(0, 10),
       memberIds: defaultValues?.memberIds || [],
     },
@@ -68,14 +64,6 @@ export default function CycleForm({
         {errors.amountPerPerson && (
           <p className="text-xs text-red-700 mt-1">{errors.amountPerPerson.message}</p>
         )}
-      </div>
-
-      <div>
-        <label htmlFor="cycle-frequency" className="block text-sm text-text-secondary mb-1">Frequency</label>
-        <select id="cycle-frequency" {...register('frequency')} className="w-full px-3 py-2.5 border border-border rounded-lg">
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
       </div>
 
       <div>

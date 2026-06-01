@@ -63,9 +63,7 @@ interface NavbarProps {
 export default function Navbar({ showBack = false }: NavbarProps) {
   const isOnline = useOnlineStatus()
   const { user, logout } = useAuthStore()
-  const { goDashboard, setScreen } = useAppStore()
-
-  const onBack = () => goDashboard()
+  const { goBack, setScreen } = useAppStore()
 
   return (
     <>
@@ -75,7 +73,7 @@ export default function Navbar({ showBack = false }: NavbarProps) {
             {showBack && (
               <button
                 type="button"
-                onClick={onBack}
+                onClick={goBack}
                 className="w-9 h-9 flex items-center justify-center rounded-full text-text-secondary hover:text-text-primary hover:bg-[#F0F0F0] transition-colors -ml-2 mr-1"
                 aria-label="Go back"
               >

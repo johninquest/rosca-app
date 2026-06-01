@@ -17,7 +17,7 @@ export default function AddCycle() {
       await addCycle({
         name: values.name,
         amountPerPerson: values.amountPerPerson,
-        frequency: values.frequency,
+        frequency: 'monthly',
         startDate: new Date(values.startDate),
         status: 'active',
         memberIds: values.memberIds,
