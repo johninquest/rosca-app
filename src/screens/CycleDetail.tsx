@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../stores/useAppStore'
 import { useCycleStore } from '../stores/useCycleStore'
 import { exportCycleContributionsCSV, exportCycleContributionsPDF } from '../utils/export'
-import { formatAmount, todayISO } from '../utils/format'
+import { formatAmount, getMonthName, todayISO } from '../utils/format'
 import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
 import type { PaymentMethod } from '../types'
 
@@ -14,7 +14,7 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
 }
 
 export default function CycleDetail() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { selectedCycleId } = useAppStore()
   const {
     cycles,
@@ -293,7 +293,7 @@ export default function CycleDetail() {
                 className="w-full px-4 py-3 flex items-center justify-between text-sm"
               >
                 <span className="font-medium text-text-primary">
-                  Month {roundNumber} {beneficiary ? `- ${beneficiary.name}` : ''}
+                  {t('cycle.month')} {roundNumber} - {getMonthName(roundNumber, i18n.language)}
                 </span>
                 <span className="text-text-secondary">
                   {isClosed ? 'Closed' : 'Open'}

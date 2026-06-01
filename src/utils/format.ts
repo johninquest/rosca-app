@@ -36,3 +36,8 @@ export function formatDate(value: Date | string | null | undefined): string {
     year: 'numeric',
   })
 }
+
+export function getMonthName(monthNumber: number, locale = 'en'): string {
+  const date = new Date(2024, monthNumber - 1)
+  return new Intl.DateTimeFormat(locale, { month: 'long' }).format(date)
+}

@@ -14,6 +14,7 @@
   "dashboard.settings": "Settings",
   "cycle.total": "Total contributions",
   "cycle.round": "Round",
+  "cycle.month": "Month",
   "cycle.members": "Members",
   "cycle.addContribution": "Add contribution",
   "cycle.addPayout": "Record payout",
