@@ -67,7 +67,7 @@ export default function Dashboard() {
               {t('cycle.total')}: {getCycleTotal(cycle.id).toLocaleString()} XAF
             </p>
             <p className="text-xs text-text-secondary mt-1">
-              {t('cycle.round')}: {cycle.currentRound}
+              Rounds closed: {cycle.closedRounds.length} / {cycle.totalRounds}
             </p>
           </button>
         ))}

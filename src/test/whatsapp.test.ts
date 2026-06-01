@@ -11,7 +11,8 @@ const cycle: Cycle = {
   status: 'active',
   memberIds: ['m1', 'm2'],
   payoutOrder: ['m1', 'm2'],
-  currentRound: 1,
+  totalRounds: 12,
+  closedRounds: [],
 }
 
 const members: Member[] = [
@@ -63,7 +64,7 @@ describe('buildRoscaWhatsAppUrl', () => {
     )
 
     expect(decoded).toContain('Tontine Famille 2026')
-    expect(decoded).toContain('Tour actuel: 1')
+    expect(decoded).toContain('Tours fermes: 0/12')
     expect(decoded).toContain('Contributions par membre')
   })
 

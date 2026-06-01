@@ -56,7 +56,7 @@ export function exportCycleContributionsPDF(
 
   doc.setFontSize(11)
   doc.text(`Frequence: ${cycle.frequency}`, 14, 26)
-  doc.text(`Tour actuel: ${cycle.currentRound}`, 14, 32)
+  doc.text(`Tours fermes: ${cycle.closedRounds.length}/${cycle.totalRounds}`, 14, 32)
   doc.text(`Total collecte: ${formatAmount(total, 'XAF')}`, 14, 38)
 
   autoTable(doc, {

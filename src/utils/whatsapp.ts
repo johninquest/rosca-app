@@ -15,6 +15,8 @@ export function buildRoscaWhatsAppUrl({
   payouts = [],
 }: BuildRoscaWhatsAppInput): string {
   const total = contributions.reduce((sum, item) => sum + item.amount, 0)
+  const activeRound = Array.from({ length: cycle.totalRounds }, (_, idx) => idx + 1)
+    .find((round) => !cycle.closedRounds.includes(round))
 
   const memberTotals = members
     .map((member) => {
@@ -26,14 +28,17 @@ export function buildRoscaWhatsAppUrl({
     })
     .sort((a, b) => b.memberTotal - a.memberTotal)
 
-  const currentPayout = payouts.find((payout) => payout.roundNumber === cycle.currentRound)
+  const currentPayout = activeRound
+    ? payouts.find((payout) => payout.roundNumber === activeRound)
+    : undefined
   const payoutMember = currentPayout
     ? members.find((member) => member.id === currentPayout.memberId)
     : null
 
   let message = `*${cycle.name}*\n\n`
   message += `Frequence: ${cycle.frequency}\n`
-  message += `Tour actuel: ${cycle.currentRound}\n`
+  message += `Tours fermes: ${cycle.closedRounds.length}/${cycle.totalRounds}\n`
+  if (activeRound) message += `Tour ouvert: ${activeRound}\n`
   message += `Total collecte: ${formatAmount(total, 'XAF')}\n\n`
 
   message += '*Contributions par membre*\n'

@@ -15,7 +15,8 @@ export interface Cycle {
   status: 'active' | 'completed'
   memberIds: string[]
   payoutOrder: string[]
-  currentRound: number
+  totalRounds: number
+  closedRounds: number[]
 }
 
 export interface Contribution {

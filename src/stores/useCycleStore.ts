@@ -4,7 +4,7 @@ import { pb } from '../services/pocketbase'
 import type { Contribution, Cycle, Member, Payout } from '../types'
 
 type NewMember = Omit<Member, 'id'>
-type NewCycle = Omit<Cycle, 'id' | 'currentRound'>
+type NewCycle = Omit<Cycle, 'id' | 'totalRounds' | 'closedRounds'>
 type NewContribution = Omit<Contribution, 'id'>
 type NewPayout = Omit<Payout, 'id'>
 
@@ -28,7 +28,8 @@ export function mapCycle(r: RecordModel): Cycle {
     status: r.status,
     memberIds: r.memberIds,
     payoutOrder: r.payoutOrder,
-    currentRound: r.currentRound,
+    totalRounds: typeof r.totalRounds === 'number' ? r.totalRounds : 12,
+    closedRounds: Array.isArray(r.closedRounds) ? r.closedRounds : [],
   }
 }
 
@@ -70,7 +71,7 @@ interface CycleState {
   addContribution: (data: NewContribution) => Promise<void>
   updateContribution: (id: string, data: Partial<NewContribution>) => Promise<void>
   addPayout: (data: NewPayout) => Promise<void>
-  advanceRound: (cycleId: string) => Promise<void>
+  closeRound: (cycleId: string, roundNumber: number) => Promise<void>
   deleteContribution: (id: string) => Promise<void>
   getMemberTotal: (memberId: string, cycleId: string) => number
   getCycleTotal: (cycleId: string) => number
@@ -150,7 +151,8 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       status: data.status,
       memberIds: data.memberIds,
       payoutOrder: data.payoutOrder,
-      currentRound: 1,
+      totalRounds: 12,
+      closedRounds: [],
       owner: pb.authStore.record?.id,
     })
     const cycle = mapCycle(record)
@@ -227,14 +229,18 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     set((state) => ({ payouts: [payout, ...state.payouts] }))
   },
 
-  advanceRound: async (cycleId) => {
+  closeRound: async (cycleId, roundNumber) => {
     const cycle = get().cycles.find((c) => c.id === cycleId)
-    if (!cycle) return
-    const nextRound = cycle.currentRound + 1
-    await pb.collection('rosca_cycles').update(cycleId, { currentRound: nextRound })
+    if (!cycle || cycle.closedRounds.includes(roundNumber)) return
+
+    const closedRounds = [...cycle.closedRounds, roundNumber].sort((a, b) => a - b)
+    const status = closedRounds.length >= cycle.totalRounds ? 'completed' : cycle.status
+
+    await pb.collection('rosca_cycles').update(cycleId, { closedRounds, status })
+
     set((state) => ({
       cycles: state.cycles.map((c) =>
-        c.id === cycleId ? { ...c, currentRound: nextRound } : c,
+        c.id === cycleId ? { ...c, closedRounds, status } : c,
       ),
     }))
   },
