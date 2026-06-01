@@ -1,19 +1,23 @@
 import { useForm } from 'react-hook-form'
+import type { Cycle } from '../types'
 
 export interface MemberFormValues {
   name: string
   phone?: string
   joinDate: string
+  cycleId?: string
 }
 
 interface MemberFormProps {
   defaultValues?: Partial<MemberFormValues>
+  cycles?: Cycle[]
   submitLabel?: string
   onSubmit: (values: MemberFormValues) => Promise<void> | void
 }
 
 export default function MemberForm({
   defaultValues,
+  cycles,
   submitLabel = 'Save',
   onSubmit,
 }: MemberFormProps) {
@@ -26,6 +30,7 @@ export default function MemberForm({
       name: defaultValues?.name || '',
       phone: defaultValues?.phone || '',
       joinDate: defaultValues?.joinDate || new Date().toISOString().slice(0, 10),
+      cycleId: defaultValues?.cycleId || '',
     },
   })
 
@@ -55,6 +60,23 @@ export default function MemberForm({
         <label className="block text-sm text-text-secondary mb-1">Join date</label>
         <input type="date" {...register('joinDate', { required: true })} className="w-full px-3 py-2.5 border border-border rounded-lg" />
       </div>
+
+      {cycles && cycles.length > 0 && (
+        <div>
+          <label className="block text-sm text-text-secondary mb-1">Assign to a Njangi (optional)</label>
+          <select
+            {...register('cycleId')}
+            className="w-full px-3 py-2.5 border border-border rounded-lg bg-white"
+          >
+            <option value="">Not assigned</option>
+            {cycles.map((cycle) => (
+              <option key={cycle.id} value={cycle.id}>
+                {cycle.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <button
         type="submit"

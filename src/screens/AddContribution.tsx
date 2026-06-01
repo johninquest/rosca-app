@@ -30,6 +30,7 @@ export default function AddContribution() {
         memberId: values.memberId,
         amount: values.amount,
         date: new Date(values.date),
+        roundNumber: cycle.currentRound,
         method: values.method,
         notes: values.notes ?? '',
       })

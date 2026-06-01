@@ -39,6 +39,7 @@ export function mapContribution(r: RecordModel): Contribution {
     memberId: r.memberId,
     amount: r.amount,
     date: new Date(r.date),
+    roundNumber: r.roundNumber ?? undefined,
     method: r.method,
     notes: r.notes || undefined,
   }
@@ -62,8 +63,10 @@ interface CycleState {
   payouts: Payout[]
   isLoading: boolean
   loadAll: () => Promise<void>
-  addMember: (data: NewMember) => Promise<void>
+  addMember: (data: NewMember) => Promise<Member>
+  updateMember: (id: string, data: Partial<NewMember>) => Promise<void>
   addCycle: (data: NewCycle) => Promise<void>
+  addMemberToCycle: (cycleId: string, memberId: string) => Promise<void>
   addContribution: (data: NewContribution) => Promise<void>
   addPayout: (data: NewPayout) => Promise<void>
   advanceRound: (cycleId: string) => Promise<void>
@@ -112,6 +115,24 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     })
     const member = mapMember(record)
     set((state) => ({ members: [...state.members, member] }))
+    return member
+  },
+
+  updateMember: async (id, data) => {
+    const payload: Record<string, unknown> = {}
+    if (data.name !== undefined) payload.name = data.name
+    if (data.phone !== undefined) payload.phone = data.phone
+    if (data.joinDate !== undefined) {
+      payload.joinDate = data.joinDate instanceof Date
+        ? data.joinDate.toISOString().split('T')[0]
+        : data.joinDate
+    }
+
+    const record = await pb.collection('rosca_members').update(id, payload)
+    const updated = mapMember(record)
+    set((state) => ({
+      members: state.members.map((member) => (member.id === id ? updated : member)),
+    }))
   },
 
   addCycle: async (data) => {
@@ -135,6 +156,24 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     set((state) => ({ cycles: [cycle, ...state.cycles] }))
   },
 
+  addMemberToCycle: async (cycleId, memberId) => {
+    const cycle = get().cycles.find((item) => item.id === cycleId)
+    if (!cycle || cycle.memberIds.includes(memberId)) return
+
+    const memberIds = [...cycle.memberIds, memberId]
+    const payoutOrder = [...cycle.payoutOrder, memberId]
+
+    const record = await pb.collection('rosca_cycles').update(cycleId, {
+      memberIds,
+      payoutOrder,
+    })
+
+    const updatedCycle = mapCycle(record)
+    set((state) => ({
+      cycles: state.cycles.map((item) => (item.id === cycleId ? updatedCycle : item)),
+    }))
+  },
+
   addContribution: async (data) => {
     const record = await pb.collection('rosca_contributions').create({
       cycleId: data.cycleId,
@@ -143,6 +182,7 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       date: data.date instanceof Date
         ? data.date.toISOString().split('T')[0]
         : data.date,
+      roundNumber: data.roundNumber,
       method: data.method,
       notes: data.notes ?? '',
       owner: pb.authStore.record?.id,

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../stores/useAppStore'
 import { useCycleStore } from '../stores/useCycleStore'
@@ -9,8 +9,19 @@ import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
 export default function CycleDetail() {
   const { t } = useTranslation()
   const { selectedCycleId, setScreen, openAddPayout } = useAppStore()
-  const { cycles, members, contributions, payouts, getMemberTotal, getCycleTotal, advanceRound } =
-    useCycleStore()
+  const {
+    cycles,
+    members,
+    contributions,
+    payouts,
+    getMemberTotal,
+    getCycleTotal,
+    advanceRound,
+    addMemberToCycle,
+  } = useCycleStore()
+
+  const [selectedNewMemberId, setSelectedNewMemberId] = useState('')
+  const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
 
   const cycle = useMemo(
     () => cycles.find((item) => item.id === selectedCycleId) ?? null,
@@ -32,6 +43,16 @@ export default function CycleDetail() {
     [payouts, selectedCycleId],
   )
 
+  const availableMembers = useMemo(
+    () => (cycle ? members.filter((m) => !cycle.memberIds.includes(m.id)) : []),
+    [cycle, members],
+  )
+
+  const rounds = useMemo(() => {
+    if (!cycle) return []
+    return Array.from({ length: cycle.currentRound }, (_, idx) => idx + 1)
+  }, [cycle])
+
   const currentRoundBeneficiary = useMemo(() => {
     if (!cycle || cycle.payoutOrder.length === 0) return null
     const idx = (cycle.currentRound - 1) % cycle.payoutOrder.length
@@ -46,6 +67,15 @@ export default function CycleDetail() {
       </div>
     )
   }
+
+  const toggleRound = (round: number) => {
+    setExpandedRounds((prev) => ({
+      ...prev,
+      [round]: !(prev[round] ?? round === cycle.currentRound),
+    }))
+  }
+
+  const isRoundExpanded = (round: number) => expandedRounds[round] ?? round === cycle.currentRound
 
   return (
     <section className="space-y-4">
@@ -81,21 +111,105 @@ export default function CycleDetail() {
             <p className="text-sm text-text-secondary">{t('members.empty')}</p>
           )}
         </div>
+
+        {availableMembers.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-sm font-medium text-text-primary mb-2">Add member to this Njangi</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <select
+                value={selectedNewMemberId}
+                onChange={(e) => setSelectedNewMemberId(e.target.value)}
+                className="flex-1 px-3 py-2.5 border border-border rounded-lg bg-white text-sm"
+              >
+                <option value="">Select member</option>
+                {availableMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!selectedNewMemberId}
+                onClick={async () => {
+                  await addMemberToCycle(cycle.id, selectedNewMemberId)
+                  setSelectedNewMemberId('')
+                }}
+                className="px-4 py-2.5 rounded-lg border border-border text-sm text-text-primary disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Payouts history */}
-      {cyclePayouts.length > 0 && (
+      {/* Round-by-round history */}
+      {rounds.length > 0 && (
         <div className="bg-white border border-border rounded-xl p-4">
-          <h2 className="font-semibold text-text-primary mb-3">{t('payout.title')}</h2>
+          <h2 className="font-semibold text-text-primary mb-3">Rounds</h2>
           <div className="space-y-2">
-            {cyclePayouts.map((payout) => {
-              const beneficiary = members.find((m) => m.id === payout.memberId)
+            {rounds.map((roundNumber) => {
+              const roundContributions = cycleContributions.filter((c) => c.roundNumber === roundNumber)
+              const roundPayout = cyclePayouts.find((p) => p.roundNumber === roundNumber)
+              const beneficiary = roundPayout
+                ? members.find((m) => m.id === roundPayout.memberId)
+                : null
+
               return (
-                <div key={payout.id} className="flex items-center justify-between text-sm">
-                  <span className="text-text-primary">
-                    {t('cycle.round')} {payout.roundNumber} — {beneficiary?.name ?? '?'}
-                  </span>
-                  <span className="text-text-secondary">{formatAmount(payout.amount)}</span>
+                <div key={roundNumber} className="border border-border rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => toggleRound(roundNumber)}
+                    className="w-full px-3 py-2.5 flex items-center justify-between text-sm"
+                  >
+                    <span className="text-text-primary font-medium">
+                      {t('cycle.round')} {roundNumber}
+                      {beneficiary ? ` - ${beneficiary.name}` : ''}
+                    </span>
+                    <span className="text-text-secondary">
+                      {roundPayout ? formatAmount(roundPayout.amount) : 'No payout yet'}
+                    </span>
+                  </button>
+
+                  {isRoundExpanded(roundNumber) && (
+                    <div className="border-t border-border px-3 py-2.5 space-y-2">
+                      <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                        Contributions
+                      </p>
+                      {roundContributions.length === 0 && (
+                        <p className="text-sm text-text-secondary">No contributions recorded.</p>
+                      )}
+                      {roundContributions.map((contribution) => {
+                        const contributor = members.find((m) => m.id === contribution.memberId)
+                        return (
+                          <div
+                            key={contribution.id}
+                            className="flex items-center justify-between text-sm"
+                          >
+                            <span className="text-text-primary">
+                              {contributor?.name ?? 'Unknown'} ({contribution.method})
+                            </span>
+                            <span className="text-text-secondary">
+                              {formatAmount(contribution.amount)}
+                            </span>
+                          </div>
+                        )
+                      })}
+
+                      <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide pt-1">
+                        Payout
+                      </p>
+                      {roundPayout ? (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-primary">{beneficiary?.name ?? 'Unknown'}</span>
+                          <span className="text-text-secondary">{formatAmount(roundPayout.amount)}</span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-text-secondary">No payout recorded.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

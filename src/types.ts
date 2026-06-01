@@ -24,6 +24,7 @@ export interface Contribution {
   memberId: string
   amount: number
   date: Date
+  roundNumber?: number
   method: 'cash' | 'mtn' | 'orange' | 'other'
   notes?: string
 }
