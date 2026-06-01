@@ -4,6 +4,7 @@ import { useCycleStore } from './useCycleStore'
 
 interface AuthUser {
   id: string
+  name: string
   email: string
 }
 
@@ -31,6 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
         user: {
           id: pb.authStore.record.id,
+          name: pb.authStore.record.name,
           email: pb.authStore.record.email,
         },
       })
@@ -46,6 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: true,
       user: {
         id: auth.record.id,
+        name: auth.record.name,
         email: auth.record.email,
       },
     })
