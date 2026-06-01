@@ -5,8 +5,13 @@ import { useCycleStore } from '../stores/useCycleStore'
 import { exportCycleContributionsCSV, exportCycleContributionsPDF } from '../utils/export'
 import { formatAmount, todayISO } from '../utils/format'
 import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
+import type { PaymentMethod } from '../types'
 
-type ContributionMethod = 'cash' | 'mtn' | 'orange' | 'other'
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  cash: 'Cash',
+  bank_transfer: 'Bank transfer',
+  mobile_money: 'Mobile money',
+}
 
 export default function CycleDetail() {
   const { t } = useTranslation()
@@ -34,7 +39,7 @@ export default function CycleDetail() {
   const [selectedNewMemberId, setSelectedNewMemberId] = useState('')
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
   const [editingContributionId, setEditingContributionId] = useState<string | null>(null)
-  const [editMethod, setEditMethod] = useState<ContributionMethod>('cash')
+  const [editMethod, setEditMethod] = useState<PaymentMethod>('cash')
   const [editNotes, setEditNotes] = useState('')
   const [savingMemberKey, setSavingMemberKey] = useState<string | null>(null)
   const [savingPayoutRound, setSavingPayoutRound] = useState<number | null>(null)
@@ -86,7 +91,7 @@ export default function CycleDetail() {
 
   const getRoundContributions = (memberId: string, roundNumber: number) => {
     return cycleContributions.filter(
-      (item) => item.memberId === memberId && item.roundNumber === roundNumber,
+      (item) => item.memberId === memberId && Number(item.roundNumber) === roundNumber,
     )
   }
 
@@ -125,7 +130,7 @@ export default function CycleDetail() {
   }
 
   const toggleMemberPaid = async (roundNumber: number, memberId: string, isPaid: boolean) => {
-    if (cycle.closedRounds.includes(roundNumber)) return
+    if (cycle.closedRounds.map(Number).includes(roundNumber)) return
 
     const key = `${roundNumber}:${memberId}`
     if (pendingToggleKeysRef.current.has(key)) return
@@ -147,7 +152,7 @@ export default function CycleDetail() {
           amount: cycle.amountPerPerson,
           date: new Date(),
           roundNumber,
-          method: 'cash',
+          method: cycle.defaultPaymentMethod,
           notes: '',
         })
       }
@@ -263,7 +268,9 @@ export default function CycleDetail() {
 
       <div className="space-y-2">
         {rounds.map((roundNumber) => {
-          const roundContributions = cycleContributions.filter((c) => c.roundNumber === roundNumber)
+          const roundContributions = cycleContributions.filter(
+            (c) => Number(c.roundNumber) === roundNumber,
+          )
           const contributionsByMember = new Map<string, (typeof roundContributions)[number]>()
           roundContributions.forEach((item) => {
             // Keep only the latest contribution per member for this round.
@@ -324,7 +331,7 @@ export default function CycleDetail() {
 
                           {isPaid && contribution && (
                             <div className="text-xs text-text-secondary flex items-center justify-between gap-2">
-                              <span>Method: {contribution.method}</span>
+                              <span>Method: {paymentMethodLabels[contribution.method]}</span>
                               {!isClosed && (
                                 <button
                                   type="button"
@@ -344,14 +351,13 @@ export default function CycleDetail() {
                                 <select
                                   value={editMethod}
                                   onChange={(event) => {
-                                    setEditMethod(event.target.value as ContributionMethod)
+                                    setEditMethod(event.target.value as PaymentMethod)
                                   }}
                                   className="w-full px-3 py-2 border border-border rounded-lg text-sm"
                                 >
                                   <option value="cash">Cash</option>
-                                  <option value="mtn">MTN</option>
-                                  <option value="orange">Orange</option>
-                                  <option value="other">Other</option>
+                                  <option value="bank_transfer">Bank transfer</option>
+                                  <option value="mobile_money">Mobile money</option>
                                 </select>
                               </div>
                               <div>

@@ -11,6 +11,7 @@ const cycle: Cycle = {
   status: 'active',
   memberIds: ['m1', 'm2'],
   payoutOrder: ['m1', 'm2'],
+  defaultPaymentMethod: 'cash',
   totalRounds: 12,
   closedRounds: [],
 }

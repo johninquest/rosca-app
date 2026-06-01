@@ -5,6 +5,8 @@ export interface Member {
   joinDate: Date
 }
 
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money'
+
 export interface Cycle {
   id: string
   name: string
@@ -15,6 +17,7 @@ export interface Cycle {
   status: 'active' | 'completed'
   memberIds: string[]
   payoutOrder: string[]
+  defaultPaymentMethod: PaymentMethod
   totalRounds: number
   closedRounds: number[]
 }
@@ -26,7 +29,7 @@ export interface Contribution {
   amount: number
   date: Date
   roundNumber?: number
-  method: 'cash' | 'mtn' | 'orange' | 'other'
+  method: PaymentMethod
   notes?: string
 }
 

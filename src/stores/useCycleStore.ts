@@ -1,7 +1,7 @@
 ﻿import type { RecordModel } from 'pocketbase'
 import { create } from 'zustand'
 import { pb } from '../services/pocketbase'
-import type { Contribution, Cycle, Member, Payout } from '../types'
+import type { Contribution, Cycle, Member, PaymentMethod, Payout } from '../types'
 
 type NewMember = Omit<Member, 'id'>
 type NewCycle = Omit<Cycle, 'id' | 'totalRounds' | 'closedRounds'>
@@ -28,9 +28,19 @@ export function mapCycle(r: RecordModel): Cycle {
     status: r.status,
     memberIds: r.memberIds,
     payoutOrder: r.payoutOrder,
+    defaultPaymentMethod:
+      r.defaultPaymentMethod === 'bank_transfer' || r.defaultPaymentMethod === 'mobile_money'
+        ? r.defaultPaymentMethod
+        : 'cash',
     totalRounds: typeof r.totalRounds === 'number' ? r.totalRounds : 12,
     closedRounds: Array.isArray(r.closedRounds) ? r.closedRounds : [],
   }
+}
+
+function normalizePaymentMethod(value: unknown): PaymentMethod {
+  return value === 'cash' || value === 'bank_transfer' || value === 'mobile_money'
+    ? value
+    : 'mobile_money'
 }
 
 export function mapContribution(r: RecordModel): Contribution {
@@ -40,8 +50,8 @@ export function mapContribution(r: RecordModel): Contribution {
     memberId: r.memberId,
     amount: r.amount,
     date: new Date(r.date),
-    roundNumber: r.roundNumber ?? undefined,
-    method: r.method,
+    roundNumber: r.roundNumber != null ? Number(r.roundNumber) : undefined,
+    method: normalizePaymentMethod(r.method),
     notes: r.notes || undefined,
   }
 }
@@ -142,6 +152,7 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       name: data.name,
       amountPerPerson: data.amountPerPerson,
       frequency: data.frequency,
+      defaultPaymentMethod: data.defaultPaymentMethod,
       startDate: data.startDate instanceof Date
         ? data.startDate.toISOString().split('T')[0]
         : data.startDate,

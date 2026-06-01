@@ -1,11 +1,13 @@
 import { useForm } from 'react-hook-form'
 import type { Member } from '../types'
+import type { PaymentMethod } from '../types'
 
 export interface CycleFormValues {
   name: string
   amountPerPerson: number
   startDate: string
   memberIds: string[]
+  defaultPaymentMethod: PaymentMethod
 }
 
 interface CycleFormProps {
@@ -31,6 +33,7 @@ export default function CycleForm({
       amountPerPerson: defaultValues?.amountPerPerson,
       startDate: defaultValues?.startDate || new Date().toISOString().slice(0, 10),
       memberIds: defaultValues?.memberIds || [],
+      defaultPaymentMethod: defaultValues?.defaultPaymentMethod || 'cash',
     },
   })
 
@@ -74,6 +77,21 @@ export default function CycleForm({
           {...register('startDate', { required: true })}
           className="w-full px-3 py-2.5 border border-border rounded-lg"
         />
+      </div>
+
+      <div>
+        <label htmlFor="cycle-default-method" className="block text-sm text-text-secondary mb-1">
+          Default payment method
+        </label>
+        <select
+          id="cycle-default-method"
+          {...register('defaultPaymentMethod', { required: true })}
+          className="w-full px-3 py-2.5 border border-border rounded-lg bg-white"
+        >
+          <option value="cash">Cash</option>
+          <option value="bank_transfer">Bank transfer</option>
+          <option value="mobile_money">Mobile money</option>
+        </select>
       </div>
 
       <fieldset className="border border-border rounded-lg p-3 space-y-2">

@@ -18,6 +18,7 @@ export default function AddCycle() {
         name: values.name,
         amountPerPerson: values.amountPerPerson,
         frequency: 'monthly',
+        defaultPaymentMethod: values.defaultPaymentMethod,
         startDate: new Date(values.startDate),
         status: 'active',
         memberIds: values.memberIds,
