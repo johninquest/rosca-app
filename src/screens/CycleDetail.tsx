@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { pb } from '../services/pocketbase'
 import { useAppStore } from '../stores/useAppStore'
 import { useCycleStore } from '../stores/useCycleStore'
 import { exportCycleContributionsCSV, exportCycleContributionsPDF } from '../utils/export'
@@ -15,7 +17,7 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
 
 export default function CycleDetail() {
   const { t, i18n } = useTranslation()
-  const { selectedCycleId } = useAppStore()
+  const { selectedCycleId, goDashboard } = useAppStore()
   const {
     cycles,
     members,
@@ -27,6 +29,7 @@ export default function CycleDetail() {
     addContribution,
     updateContribution,
     deleteContribution,
+    deleteCycle,
     addPayout,
     closeRound,
   } = useCycleStore()
@@ -44,6 +47,8 @@ export default function CycleDetail() {
   const [savingMemberKey, setSavingMemberKey] = useState<string | null>(null)
   const [savingPayoutRound, setSavingPayoutRound] = useState<number | null>(null)
   const [closingRound, setClosingRound] = useState<number | null>(null)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [isDeletingCycle, setIsDeletingCycle] = useState(false)
   const [payoutAmountByRound, setPayoutAmountByRound] = useState<Record<number, string>>({})
   const [payoutDateByRound, setPayoutDateByRound] = useState<Record<number, string>>({})
   const [error, setError] = useState<string | null>(null)
@@ -76,6 +81,8 @@ export default function CycleDetail() {
       </div>
     )
   }
+
+  const canDeleteCycle = Boolean(cycle.owner && cycle.owner === pb.authStore.record?.id)
 
   const rounds = Array.from({ length: cycle.totalRounds }, (_, idx) => idx + 1)
   const activeRound = rounds.find((round) => !cycle.closedRounds.includes(round)) ?? null
@@ -204,6 +211,20 @@ export default function CycleDetail() {
       setError(err instanceof Error ? err.message : 'Failed to close round.')
     } finally {
       setClosingRound(null)
+    }
+  }
+
+  const handleDeleteCycle = async () => {
+    setError(null)
+    setIsDeletingCycle(true)
+    try {
+      await deleteCycle(cycle.id)
+      goDashboard()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('cycle.deleteError'))
+    } finally {
+      setIsDeletingCycle(false)
+      setConfirmDeleteOpen(false)
     }
   }
 
@@ -460,7 +481,7 @@ export default function CycleDetail() {
         })}
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <button
           type="button"
           onClick={() => {
@@ -490,7 +511,26 @@ export default function CycleDetail() {
         >
           {t('cycle.exportPDF')}
         </button>
+        {canDeleteCycle && (
+          <button
+            type="button"
+            disabled={isDeletingCycle}
+            onClick={() => setConfirmDeleteOpen(true)}
+            className="py-2 border border-red-300 text-red-700 rounded-xl text-xs disabled:opacity-50"
+          >
+            {isDeletingCycle ? t('common.loading') : t('cycle.delete')}
+          </button>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title={t('cycle.deleteConfirmTitle')}
+        message={t('cycle.deleteConfirmMessage')}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={() => void handleDeleteCycle()}
+        danger
+      />
     </section>
   )
 }

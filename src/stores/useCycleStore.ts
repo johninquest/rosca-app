@@ -14,6 +14,7 @@ export function mapMember(r: RecordModel): Member {
     name: r.name,
     phone: r.phone,
     joinDate: new Date(r.joinDate),
+    owner: typeof r.owner === 'string' ? r.owner : undefined,
   }
 }
 
@@ -26,6 +27,7 @@ export function mapCycle(r: RecordModel): Cycle {
     startDate: new Date(r.startDate),
     endDate: r.endDate ? new Date(r.endDate) : undefined,
     status: r.status,
+    owner: typeof r.owner === 'string' ? r.owner : undefined,
     memberIds: r.memberIds,
     payoutOrder: r.payoutOrder,
     defaultPaymentMethod:
@@ -75,6 +77,7 @@ interface CycleState {
   isLoading: boolean
   loadAll: () => Promise<void>
   addMember: (data: NewMember) => Promise<Member>
+  deleteMember: (memberId: string) => Promise<void>
   updateMember: (id: string, data: Partial<NewMember>) => Promise<void>
   addCycle: (data: NewCycle) => Promise<void>
   addMemberToCycle: (cycleId: string, memberId: string) => Promise<void>
@@ -83,6 +86,7 @@ interface CycleState {
   addPayout: (data: NewPayout) => Promise<void>
   closeRound: (cycleId: string, roundNumber: number) => Promise<void>
   deleteContribution: (id: string) => Promise<void>
+  deleteCycle: (cycleId: string) => Promise<void>
   getMemberTotal: (memberId: string, cycleId: string) => number
   getCycleTotal: (cycleId: string) => number
 }
@@ -128,6 +132,44 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     const member = mapMember(record)
     set((state) => ({ members: [...state.members, member] }))
     return member
+  },
+
+  deleteMember: async (memberId: string) => {
+    const state = get()
+    const affectedCycles = state.cycles.filter((cycle) => cycle.memberIds.includes(memberId))
+    const contributionIds = state.contributions
+      .filter((item) => item.memberId === memberId)
+      .map((item) => item.id)
+    const payoutIds = state.payouts
+      .filter((item) => item.memberId === memberId)
+      .map((item) => item.id)
+
+    await Promise.all(
+      affectedCycles.map((cycle) =>
+        pb.collection('rosca_cycles').update(cycle.id, {
+          memberIds: cycle.memberIds.filter((id) => id !== memberId),
+          payoutOrder: cycle.payoutOrder.filter((id) => id !== memberId),
+        }),
+      ),
+    )
+    await Promise.all(contributionIds.map((id) => pb.collection('rosca_contributions').delete(id)))
+    await Promise.all(payoutIds.map((id) => pb.collection('rosca_payouts').delete(id)))
+    await pb.collection('rosca_members').delete(memberId)
+
+    set((current) => ({
+      members: current.members.filter((member) => member.id !== memberId),
+      cycles: current.cycles.map((cycle) =>
+        cycle.memberIds.includes(memberId)
+          ? {
+              ...cycle,
+              memberIds: cycle.memberIds.filter((id) => id !== memberId),
+              payoutOrder: cycle.payoutOrder.filter((id) => id !== memberId),
+            }
+          : cycle,
+      ),
+      contributions: current.contributions.filter((item) => item.memberId !== memberId),
+      payouts: current.payouts.filter((item) => item.memberId !== memberId),
+    }))
   },
 
   updateMember: async (id, data) => {
@@ -260,6 +302,26 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     await pb.collection('rosca_contributions').delete(id)
     set((state) => ({
       contributions: state.contributions.filter((c) => c.id !== id),
+    }))
+  },
+
+  deleteCycle: async (cycleId) => {
+    const state = get()
+    const contributionIds = state.contributions
+      .filter((item) => item.cycleId === cycleId)
+      .map((item) => item.id)
+    const payoutIds = state.payouts
+      .filter((item) => item.cycleId === cycleId)
+      .map((item) => item.id)
+
+    await Promise.all(contributionIds.map((id) => pb.collection('rosca_contributions').delete(id)))
+    await Promise.all(payoutIds.map((id) => pb.collection('rosca_payouts').delete(id)))
+    await pb.collection('rosca_cycles').delete(cycleId)
+
+    set((current) => ({
+      cycles: current.cycles.filter((cycle) => cycle.id !== cycleId),
+      contributions: current.contributions.filter((item) => item.cycleId !== cycleId),
+      payouts: current.payouts.filter((item) => item.cycleId !== cycleId),
     }))
   },
 

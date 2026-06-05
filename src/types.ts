@@ -3,6 +3,7 @@ export interface Member {
   name: string
   phone: string
   joinDate: Date
+  owner?: string
 }
 
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money'
@@ -15,6 +16,7 @@ export interface Cycle {
   startDate: Date
   endDate?: Date
   status: 'active' | 'completed'
+  owner?: string
   memberIds: string[]
   payoutOrder: string[]
   defaultPaymentMethod: PaymentMethod
