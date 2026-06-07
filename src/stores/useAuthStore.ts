@@ -14,6 +14,7 @@ interface AuthState {
   user: AuthUser | null
   init: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
+  loginWithGoogle: () => Promise<void>
   register: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -44,6 +45,18 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email, password) => {
     const auth = await pb.collection('users').authWithPassword(email, password)
+    set({
+      isAuthenticated: true,
+      user: {
+        id: auth.record.id,
+        name: auth.record.name,
+        email: auth.record.email,
+      },
+    })
+  },
+
+  loginWithGoogle: async () => {
+    const auth = await pb.collection('users').authWithOAuth2({ provider: 'google' })
     set({
       isAuthenticated: true,
       user: {
