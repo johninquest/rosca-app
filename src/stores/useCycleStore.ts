@@ -101,11 +101,20 @@ export const useCycleStore = create<CycleState>((set, get) => ({
   loadAll: async () => {
     set({ isLoading: true })
     try {
+      const ownerFilter = `owner = "${pb.authStore.record?.id}"`
       const [memberRecords, cycleRecords, contributionRecords, payoutRecords] = await Promise.all([
-        pb.collection('rosca_members').getFullList({ sort: 'name' }),
-        pb.collection('rosca_cycles').getFullList({ sort: '-created' }),
-        pb.collection('rosca_contributions').getFullList({ sort: '-date' }),
-        pb.collection('rosca_payouts').getFullList({ sort: '-date' }),
+        pb
+          .collection('rosca_members')
+          .getFullList({ sort: 'name', filter: ownerFilter, $autoCancel: false }),
+        pb
+          .collection('rosca_cycles')
+          .getFullList({ sort: '-created', filter: ownerFilter, $autoCancel: false }),
+        pb
+          .collection('rosca_contributions')
+          .getFullList({ sort: '-date', filter: ownerFilter, $autoCancel: false }),
+        pb
+          .collection('rosca_payouts')
+          .getFullList({ sort: '-date', filter: ownerFilter, $autoCancel: false }),
       ])
       set({
         members: memberRecords.map(mapMember),

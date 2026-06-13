@@ -33,6 +33,7 @@ export interface Contribution {
   roundNumber?: number
   method: PaymentMethod
   notes?: string
+  owner?: string
 }
 
 export interface Payout {
@@ -42,4 +43,5 @@ export interface Payout {
   amount: number
   roundNumber: number
   date: Date
+  owner?: string
 }
