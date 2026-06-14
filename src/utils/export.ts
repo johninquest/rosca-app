@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { Contribution, Cycle, Member } from '../types'
+import type { Contribution, Cycle, CycleMember } from '../types'
 import { formatAmount, formatDate } from './format'
 
 function safeFilename(name: string): string {
@@ -13,7 +13,7 @@ function safeFilename(name: string): string {
 
 export function exportCycleContributionsCSV(
   cycle: Cycle,
-  members: Member[],
+  members: CycleMember[],
   contributions: Contribution[],
 ): void {
   const memberMap = new Map(members.map((member) => [member.id, member]))
@@ -44,7 +44,7 @@ export function exportCycleContributionsCSV(
 
 export function exportCycleContributionsPDF(
   cycle: Cycle,
-  members: Member[],
+  members: CycleMember[],
   contributions: Contribution[],
 ): void {
   const memberMap = new Map(members.map((member) => [member.id, member]))

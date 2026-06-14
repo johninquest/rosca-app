@@ -1,41 +1,53 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import type { Member } from '../types'
-import type { PaymentMethod } from '../types'
+import type { ContributionMode, CycleFrequency, PaymentMethod } from '../types'
 
 export interface CycleFormValues {
   name: string
-  amountPerPerson: number
+  contributionMode: ContributionMode
+  fixedAmountPerPerson?: number
+  frequency: CycleFrequency
   startDate: string
-  memberIds: string[]
+  totalRounds: number
   defaultPaymentMethod: PaymentMethod
+  termsLatePaymentPolicy?: string
+  termsFineAmount?: number
+  termsOtherRules?: string
 }
 
 interface CycleFormProps {
-  members: Member[]
   defaultValues?: Partial<CycleFormValues>
   submitLabel?: string
   onSubmit: (values: CycleFormValues) => Promise<void> | void
 }
 
 export default function CycleForm({
-  members,
   defaultValues,
   submitLabel = 'Save',
   onSubmit,
 }: CycleFormProps) {
+  const [showTerms, setShowTerms] = useState(false)
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CycleFormValues>({
     defaultValues: {
       name: defaultValues?.name || '',
-      amountPerPerson: defaultValues?.amountPerPerson,
+      contributionMode: defaultValues?.contributionMode || 'fixed',
+      fixedAmountPerPerson: defaultValues?.fixedAmountPerPerson,
+      frequency: defaultValues?.frequency || 'monthly',
       startDate: defaultValues?.startDate || new Date().toISOString().slice(0, 10),
-      memberIds: defaultValues?.memberIds || [],
+      totalRounds: defaultValues?.totalRounds ?? 12,
       defaultPaymentMethod: defaultValues?.defaultPaymentMethod || 'cash',
+      termsLatePaymentPolicy: defaultValues?.termsLatePaymentPolicy || '',
+      termsFineAmount: defaultValues?.termsFineAmount,
+      termsOtherRules: defaultValues?.termsOtherRules || '',
     },
   })
+
+  const contributionMode = watch('contributionMode')
 
   return (
     <form onSubmit={handleSubmit((values) => Promise.resolve(onSubmit(values)))} className="space-y-3">
@@ -51,21 +63,68 @@ export default function CycleForm({
       </div>
 
       <div>
-        <label htmlFor="cycle-amount" className="block text-sm text-text-secondary mb-1">Amount per person (XAF)</label>
+        <label htmlFor="cycle-mode" className="block text-sm text-text-secondary mb-1">Contribution mode</label>
+        <select
+          id="cycle-mode"
+          {...register('contributionMode', { required: true })}
+          className="w-full px-3 py-2.5 border border-border rounded-lg bg-white"
+        >
+          <option value="fixed">Fixed — everyone pays the same amount</option>
+          <option value="flex">Flexible — each member pays their own amount</option>
+        </select>
+      </div>
+
+      {contributionMode === 'fixed' && (
+        <div>
+          <label htmlFor="cycle-amount" className="block text-sm text-text-secondary mb-1">Amount per person (XAF)</label>
+          <input
+            id="cycle-amount"
+            type="number"
+            min={1}
+            {...register('fixedAmountPerPerson', {
+              required: contributionMode === 'fixed' ? 'Amount is required' : false,
+              valueAsNumber: true,
+              min: { value: 1, message: 'Minimum is 1' },
+            })}
+            className="w-full px-3 py-2.5 border border-border rounded-lg"
+            placeholder="5000"
+          />
+          {errors.fixedAmountPerPerson && (
+            <p className="text-xs text-red-700 mt-1">{errors.fixedAmountPerPerson.message}</p>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="cycle-frequency" className="block text-sm text-text-secondary mb-1">Frequency</label>
+        <select
+          id="cycle-frequency"
+          {...register('frequency', { required: true })}
+          className="w-full px-3 py-2.5 border border-border rounded-lg bg-white"
+        >
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="cycle-rounds" className="block text-sm text-text-secondary mb-1">Number of rounds</label>
         <input
-          id="cycle-amount"
+          id="cycle-rounds"
           type="number"
           min={1}
-          {...register('amountPerPerson', {
-            required: 'Amount is required',
+          max={60}
+          {...register('totalRounds', {
+            required: 'Number of rounds is required',
             valueAsNumber: true,
             min: { value: 1, message: 'Minimum is 1' },
           })}
           className="w-full px-3 py-2.5 border border-border rounded-lg"
-          placeholder="5000"
+          placeholder="12"
         />
-        {errors.amountPerPerson && (
-          <p className="text-xs text-red-700 mt-1">{errors.amountPerPerson.message}</p>
+        {errors.totalRounds && (
+          <p className="text-xs text-red-700 mt-1">{errors.totalRounds.message}</p>
         )}
       </div>
 
@@ -94,16 +153,51 @@ export default function CycleForm({
         </select>
       </div>
 
-      <fieldset className="border border-border rounded-lg p-3 space-y-2">
-        <legend className="text-sm px-1 text-text-secondary">Members</legend>
-        {members.map((member) => (
-          <label key={member.id} className="flex items-center gap-2 text-sm text-text-primary">
-            <input type="checkbox" value={member.id} {...register('memberIds', { required: true })} />
-            {member.name} ({member.phone})
-          </label>
-        ))}
-        {errors.memberIds && <p className="text-xs text-red-700">Select at least one member</p>}
-      </fieldset>
+      <div className="border border-border rounded-lg">
+        <button
+          type="button"
+          onClick={() => setShowTerms((s) => !s)}
+          className="w-full px-3 py-2 text-sm text-text-secondary flex items-center justify-between"
+        >
+          <span>Terms & Rules (optional)</span>
+          <span>{showTerms ? '▲' : '▼'}</span>
+        </button>
+        {showTerms && (
+          <div className="px-3 pb-3 space-y-3 border-t border-border">
+            <div className="pt-2">
+              <label htmlFor="terms-late" className="block text-sm text-text-secondary mb-1">Late payment policy</label>
+              <textarea
+                id="terms-late"
+                {...register('termsLatePaymentPolicy')}
+                rows={2}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm"
+                placeholder="e.g. Late payment fine of 500 XAF after 5th of the month"
+              />
+            </div>
+            <div>
+              <label htmlFor="terms-fine" className="block text-sm text-text-secondary mb-1">Fine amount (XAF)</label>
+              <input
+                id="terms-fine"
+                type="number"
+                min={0}
+                {...register('termsFineAmount', { valueAsNumber: true })}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm"
+                placeholder="500"
+              />
+            </div>
+            <div>
+              <label htmlFor="terms-other" className="block text-sm text-text-secondary mb-1">Other rules</label>
+              <textarea
+                id="terms-other"
+                {...register('termsOtherRules')}
+                rows={2}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm"
+                placeholder="Any other rules for this cycle"
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       <button
         type="submit"

@@ -1,5 +1,577 @@
 # Tontine Manager — PWA Implementation Document
-## PocketBase + Dexie.js Offline-First Sync Architecture
+## PocketBase-First Architecture with Audit Trails, Soft Deletes & Flex Mode
+
+**Version:** 3.0  
+**Date:** 2026-06-14  
+**Prepared for:** Development Agent  
+**Target:** Single-admin ROSCA management app for low-end Android in Cameroon
+
+---
+
+## 1. Architecture Overview
+
+### 1.1 The Pattern: PocketBase-First with Realtime Sync
+
+This is a **PocketBase-first** application. All reads, writes, and UI interactions use PocketBase directly via REST API. Realtime SSE subscriptions keep local Zustand state in sync automatically. The app requires an active network connection for CRUD operations.
+
+> **Note:** Dexie.js was removed from the architecture. IndexedDB is no longer used as a primary data store.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      PWA (React)                            │
+│  ┌─────────────┐      ┌─────────────────────────────────┐  │
+│  │  UI Layer   │◄────►│  Zustand Store                  │  │
+│  │  (React)    │      │  • Centralized state            │  │
+│  └────────┬────┘      │  • Optimistic UI updates      │  │
+│           │            └─────────────────────────────────┘  │
+│           │                     ▲                           │
+│           │              Realtime SSE                      │
+│           │              (PocketBase → Zustand)              │
+│           │                                                   │
+│           ▼                                                   │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │  PocketBase (Germany VPS)                           │  │
+│  │  • SQLite database                                  │  │
+│  │  • Built-in auth (single admin)                     │  │
+│  │  • Real-time SSE subscriptions                      │  │
+│  │  • REST API                                         │  │
+│  │  • File storage (PDF/CSV exports)                   │  │
+│  └─────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 Core Principles
+
+- User opens app → data loads from PocketBase via REST API
+- User adds contribution → writes to PocketBase, Zustand updates immediately
+- User exports to WhatsApp → uses local Zustand data, zero network
+- All deletes are soft deletes (never hard-delete financial records)
+- Every money movement is logged in an immutable audit trail
+- Members are scoped to cycles, not global
+
+---
+
+## 2. Tech Stack
+
+| Layer | Technology | Version | Purpose |
+|-------|-----------|---------|---------|
+| Build Tool | Vite | ^5.3 | Fast builds, tree-shaking |
+| Framework | React | ^19 | UI layer |
+| State Management | Zustand | ^4.5 | UI state, navigation, server state |
+| **Backend** | **PocketBase** | **^0.26** | **Primary database, auth, real-time sync** |
+| Styling | Tailwind CSS | ^4.3 | Utility-first CSS |
+| PWA | vite-plugin-pwa | ^1.3 | Service worker, manifest |
+| PDF Export | jspdf + jspdf-autotable | dynamic | Client-side PDF generation |
+| CSV Export | papaparse | dynamic | CSV backup/export |
+| i18n | i18next + react-i18next | ^23 / ^14 | French/English |
+| Icons | lucide-react | ^0.468 | Tree-shaken icons |
+| Date Handling | date-fns | ^3.6 | Lightweight date utilities |
+| Forms | react-hook-form | ^7.75 | Form validation and handling |
+
+---
+
+## 3. Data Flow & Sync Strategy
+
+### 3.1 Write Flow (Contribution Added)
+
+```
+User taps "Save"
+    │
+    ▼
+┌─────────────────┐
+│ 1. VALIDATE     │ ← Check required fields, amount > 0
+│    (local)      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 2. WRITE TO     │ ← POST to PocketBase
+│    POCKETBASE   │    Status: 'synced'
+│    (200-300ms)  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 3. OPTIMISTIC   │ ← Zustand store updates UI
+│    UI UPDATE    │    User sees success immediately
+│    (instant)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 4. AUDIT LOG    │ ← Log create action to audit_logs
+│    (background) │    Never blocks user flow
+└─────────────────┘
+```
+
+### 3.2 Read Flow (Dashboard Load)
+
+```
+User opens Dashboard
+    │
+    ▼
+┌─────────────────┐
+│ 1. READ FROM    │ ← PocketBase getFullList
+│    POCKETBASE   │    Filter: deletedAt = null
+│    (200-300ms)  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 2. RENDER UI    │ ← React renders with Zustand data
+│    (instant)    │
+└─────────────────┘
+```
+
+### 3.3 Realtime Sync Flow
+
+```
+PocketBase SSE Subscription
+    │
+    ▼ (on create/update/delete)
+┌─────────────────┐
+│ 1. HANDLE EVENT │ ← sync-engine.ts
+│    (soft delete │    Distinguishes hard vs soft delete
+│     detection)   │    via deletedAt field
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 2. UPDATE       │ ← Zustand store
+│    ZUSTAND      │    Maps server record to local type
+│                 │    Filters out soft-deleted records
+└─────────────────┘
+```
+
+---
+
+## 4. Database Schema
+
+### 4.1 TypeScript Types (`src/types.ts`)
+
+```typescript
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'mobile_money'
+export type ContributionMode = 'fixed' | 'flex'
+export type CycleFrequency = 'weekly' | 'biweekly' | 'monthly'
+export type CycleStatus = 'active' | 'completed'
+
+export interface CycleTerms {
+  latePaymentPolicy?: string
+  fineAmount?: number
+  fineCurrency?: 'XAF'
+  otherRules?: string
+}
+
+export interface Cycle {
+  id: string
+  name: string
+  contributionMode: ContributionMode
+  fixedAmountPerPerson?: number
+  frequency: CycleFrequency
+  startDate: Date
+  endDate?: Date
+  status: CycleStatus
+  owner?: string
+  terms: CycleTerms
+  totalRounds: number
+  closedRounds: number[]
+  payoutOrder: string[]
+  defaultPaymentMethod: PaymentMethod
+  deletedAt?: Date
+}
+
+export interface CycleMember {
+  id: string
+  cycleId: string
+  name: string
+  phone: string
+  joinDate: Date
+  contributionAmount: number
+  owner?: string
+  deletedAt?: Date
+}
+
+export interface Contribution {
+  id: string
+  cycleId: string
+  memberId: string
+  amount: number
+  date: Date
+  roundNumber: number
+  method: PaymentMethod
+  notes?: string
+  owner?: string
+  deletedAt?: Date
+}
+
+export interface Payout {
+  id: string
+  cycleId: string
+  memberId: string
+  amount: number
+  roundNumber: number
+  date: Date
+  owner?: string
+  deletedAt?: Date
+}
+
+export interface AuditLog {
+  id: string
+  cycleId: string
+  tableName: 'cycles' | 'cycle_members' | 'contributions' | 'payouts'
+  recordId: string
+  action: 'create' | 'update' | 'delete'
+  oldValues?: Record<string, unknown>
+  newValues?: Record<string, unknown>
+  performedBy: string
+  performedAt: Date
+  notes?: string
+  owner?: string
+}
+```
+
+### 4.2 PocketBase Collections (Server-Side)
+
+**Collection: `rosca_cycles`**
+```
+name                    (text, required)
+contributionMode        (select: fixed|flex, required, default: fixed)
+fixedAmountPerPerson    (number, optional, min: 0)
+frequency               (select: weekly|biweekly|monthly, required)
+startDate               (date, required)
+endDate                 (date)
+status                  (select: active|completed, required)
+totalRounds             (number, required, min: 1)
+closedRounds            (json, array of numbers)
+payoutOrder             (json, array of member IDs)
+defaultPaymentMethod    (select: cash|bank_transfer|mobile_money, required)
+termsLatePaymentPolicy  (text)
+termsFineAmount         (number, min: 0)
+termsOtherRules         (text)
+deletedAt               (date)
+created                 (autogenerate)
+updated                 (autogenerate)
+owner                   (relation to users, required)
+```
+
+**Collection: `rosca_cycle_members`** (replaces `rosca_members`)
+```
+name               (text, required)
+phone              (text)
+joinDate           (date, required)
+contributionAmount (number, required, min: 0)
+cycleId            (relation to rosca_cycles, required)
+deletedAt          (date)
+created            (autogenerate)
+updated            (autogenerate)
+owner              (relation to users, required)
+```
+
+**Collection: `rosca_contributions`**
+```
+cycleId     (relation to rosca_cycles, required)
+memberId    (relation to rosca_cycle_members, required)
+amount      (number, required, min: 0)
+date        (date, required)
+roundNumber (number, required)
+method      (select: cash|bank_transfer|mobile_money, required)
+notes       (text)
+deletedAt   (date)
+created     (autogenerate)
+updated     (autogenerate)
+owner       (relation to users, required)
+```
+
+**Collection: `rosca_payouts`**
+```
+cycleId     (relation to rosca_cycles, required)
+memberId    (relation to rosca_cycle_members, required)
+amount      (number, required, min: 0)
+roundNumber (number, required)
+date        (date, required)
+deletedAt   (date)
+created     (autogenerate)
+updated     (autogenerate)
+owner       (relation to users, required)
+```
+
+**Collection: `rosca_audit_logs`** (immutable)
+```
+cycleId      (relation to rosca_cycles, required)
+tableName    (select: cycles|cycle_members|contributions|payouts, required)
+recordId     (text, required)
+action       (select: create|update|delete, required)
+oldValues    (json)
+newValues    (json)
+performedBy  (relation to users, required)
+performedAt  (date, required)
+notes        (text)
+created      (autogenerate)
+updated      (autogenerate)
+```
+
+**API Rules (all collections except audit_logs):**
+```javascript
+List/View: @request.auth.id != "" && owner = @request.auth.id && deletedAt = null
+Create:    @request.auth.id != "" 
+Update:    @request.auth.id != "" && owner = @request.auth.id
+Delete:    @request.auth.id != "" && owner = @request.auth.id
+```
+
+**API Rules (rosca_audit_logs):**
+```javascript
+List/View: @request.auth.id != "" && owner = @request.auth.id
+Create:    @request.auth.id != "" 
+Update:    @request.auth.id = ""   // Immutable
+Delete:    @request.auth.id = ""   // Immutable
+```
+
+---
+
+## 5. Key Features
+
+### 5.1 Flexible Contribution Mode
+
+- **Fixed mode**: All members pay the same `fixedAmountPerPerson`. Each member's `contributionAmount` is prefilled with this value.
+- **Flex mode**: Each member sets their own `contributionAmount`. Payout for a round = sum of all members' `contributionAmount`.
+- Members can override their amount even in fixed mode (edge cases).
+
+### 5.2 Net Position Tracking
+
+For each member in a cycle:
+- **Net position** = total contributed - total received
+- Positive (green): member has contributed more than received
+- Negative (red): member has received more than contributed
+- This is how flex rebalancing is tracked transparently
+
+### 5.3 Soft Deletes
+
+- Every collection has a `deletedAt` field
+- API rules filter `deletedAt = null` on list/view
+- Delete operations update `deletedAt` instead of calling `delete()`
+- Deleting a cycle cascades soft deletes to all related members, contributions, and payouts
+- Audit logs are never soft-deleted (immutable compliance record)
+
+### 5.4 Audit Trail
+
+- Every create/update/delete is logged to `rosca_audit_logs`
+- `oldValues` / `newValues` stored as JSON snapshots
+- Accessible per cycle via "History" tab in cycle detail
+- Logs are immutable (no update/delete API rules)
+
+### 5.5 Cycle-Scoped Members
+
+- Members no longer exist globally
+- Members are created directly within a cycle context
+- A person can appear in multiple cycles as separate `CycleMember` records
+- Member management lives inside cycle detail, not a standalone screen
+
+---
+
+## 6. Zustand Store Architecture
+
+### 6.1 Store: `useCycleStore`
+
+```typescript
+interface CycleState {
+  cycles: Cycle[]
+  cycleMembers: CycleMember[]
+  contributions: Contribution[]
+  payouts: Payout[]
+  auditLogs: AuditLog[]
+  isLoading: boolean
+  loadAll: () => Promise<void>
+  addCycle: (data: NewCycle) => Promise<Cycle>
+  updateCycle: (id: string, data: CycleUpdate) => Promise<void>
+  deleteCycle: (cycleId: string) => Promise<void>
+  addCycleMember: (data: NewCycleMember) => Promise<CycleMember>
+  updateCycleMember: (id: string, data: Partial<NewCycleMember>) => Promise<void>
+  deleteCycleMember: (memberId: string) => Promise<void>
+  addContribution: (data: NewContribution) => Promise<void>
+  updateContribution: (id: string, data: Partial<NewContribution>) => Promise<void>
+  deleteContribution: (id: string) => Promise<void>
+  addPayout: (data: NewPayout) => Promise<void>
+  updatePayout: (id: string, data: Partial<NewPayout>) => Promise<void>
+  deletePayout: (id: string) => Promise<void>
+  closeRound: (cycleId: string, roundNumber: number) => Promise<void>
+  loadAuditLogs: (cycleId: string) => Promise<void>
+  getMemberTotal: (memberId: string, cycleId: string) => number
+  getCycleTotal: (cycleId: string) => number
+  getMemberNetPosition: (memberId: string, cycleId: string) => number
+  getRoundExpectedTotal: (cycleId: string) => number
+}
+```
+
+### 6.2 Store: `useAppStore`
+
+```typescript
+type Screen = 'dashboard' | 'cycleDetail' | 'addCycle' | 'settings'
+
+interface AppState {
+  screen: Screen
+  selectedCycleId: string | null
+  setScreen: (screen: Screen) => void
+  openCycleDetail: (cycleId: string) => void
+  goBack: () => void
+  goDashboard: () => void
+}
+```
+
+---
+
+## 7. Screen Architecture
+
+| Screen | Route/Trigger | Description |
+|--------|-------------|-------------|
+| `Auth` | Initial (not authenticated) | Login / register |
+| `Dashboard` | Default | List of cycles, quick actions |
+| `CycleDetail` | Tap cycle card | Full cycle view with tabs: Rounds, Members, Payouts, History |
+| `AddCycle` | "+ New Cycle" button | Create cycle metadata (no member selection) |
+| `Settings` | Settings icon | Language, logout |
+
+**Removed screens:** Members, AddMember, EditMember (members now live inside cycle detail).
+
+---
+
+## 8. Sync Engine
+
+`src/services/sync-engine.ts`
+
+- Subscribes to `rosca_cycle_members`, `rosca_cycles`, `rosca_contributions`, `rosca_payouts`, `rosca_audit_logs`
+- Distinguishes soft deletes (`update` with `deletedAt != null`) from actual updates
+- Soft-deleted records are removed from Zustand state, not added
+- Full mappers for all collections (cycle, member, contribution, payout, audit)
+
+---
+
+## 9. Audit Service
+
+`src/services/audit.ts`
+
+```typescript
+export async function logAuditEvent(params: {
+  cycleId: string
+  tableName: AuditLog['tableName']
+  recordId: string
+  action: 'create' | 'update' | 'delete'
+  oldValues?: Record<string, unknown>
+  newValues?: Record<string, unknown>
+  notes?: string
+}): Promise<void>
+```
+
+- Silently fails — never blocks user flow
+- Called from every mutating store method
+- For updates: fetches old values before update, stores both old and new
+- For soft deletes: action = 'delete', notes = 'Soft deleted'
+
+---
+
+## 10. Testing
+
+### Test files:
+- `test/cycleForm.test.tsx` — Cycle form validation (no member selection)
+- `test/whatsapp.test.ts` — WhatsApp message generation
+- `test/format.test.ts` — Date and amount formatting
+
+### Manual verification:
+1. Create fixed-mode cycle → add members → record contributions/payouts → verify totals
+2. Create flex-mode cycle → set different amounts → verify round expected total
+3. Delete contribution → verify disappears from UI, appears in audit history
+4. Delete cycle → verify cascade soft delete, audit logs persist
+5. Export CSV/PDF → verify new fields included
+
+---
+
+## 11. Deployment
+
+### PocketBase Server Setup
+1. Provision VPS (Hetzner CX11, Germany)
+2. Install PocketBase ^0.26
+3. Create collections with fields per section 4.2
+4. Configure API rules
+5. Set up reverse proxy (Caddy) with HTTPS
+
+### PWA Build
+```bash
+npm run build
+# Deploy dist/ to Cloudflare Pages / Netlify / Vercel
+```
+
+### Environment Variables
+```bash
+VITE_POCKETBASE_URL=https://your-pocketbase-instance.com
+```
+
+---
+
+## 12. Cost Breakdown
+
+| Item | Cost/Month |
+|------|-----------|
+| Hetzner CX11 (Germany) | €4.51 |
+| Domain (optional) | €1-10 |
+| Cloudflare Pages (PWA hosting) | Free |
+| **Total** | **~€5-15/month** |
+
+---
+
+## 13. Files Changed from v2.0
+
+| File | Change |
+|------|--------|
+| `src/types.ts` | **Rewritten** — New types: Cycle, CycleMember, Contribution, Payout, AuditLog |
+| `src/services/audit.ts` | **NEW** — Audit logging service |
+| `src/services/sync-engine.ts` | **Rewritten** — Handles soft deletes, cycle_members, audit_logs |
+| `src/stores/useCycleStore.ts` | **Rewritten** — New mappers, soft delete, audit hooks, net position |
+| `src/stores/useAppStore.ts` | **Updated** — Removed member screens from navigation |
+| `src/components/CycleForm.tsx` | **Rewritten** — No member selection, added mode/terms/duration |
+| `src/components/CycleMemberForm.tsx` | **NEW** — Inline member form for cycle detail |
+| `src/screens/CycleDetail.tsx` | **Rewritten** — Tabs: Rounds, Members, Payouts, History |
+| `src/screens/AddCycle.tsx` | **Updated** — No member selection |
+| `src/screens/Dashboard.tsx` | **Updated** — Removed Members button |
+| `src/screens/Members.tsx` | **DELETED** |
+| `src/screens/AddMember.tsx` | **DELETED** |
+| `src/screens/EditMember.tsx` | **DELETED** |
+| `src/components/MemberForm.tsx` | **DELETED** |
+| `src/utils/export.ts` | **Updated** — Member → CycleMember |
+| `src/utils/whatsapp.ts` | **Updated** — Member → CycleMember |
+| `src/App.tsx` | **Updated** — Removed member screen imports |
+| `src/test/cycleForm.test.tsx` | **Updated** — No member selection tests |
+| `src/test/whatsapp.test.ts` | **Updated** — New type shape |
+
+---
+
+## 14. Critical Implementation Notes
+
+1. **Always filter `deletedAt = null`** on list/view API calls.
+2. **Soft delete, never hard delete.** Cascade soft deletes when deleting cycles.
+3. **Audit logging is best-effort.** It silently fails — never block user flow.
+4. **Payout amount = expected total** (sum of contributionAmounts), not actual collected.
+5. **Net position is informational.** The app does not enforce settlements.
+6. **Terms are informational, not auto-enforced.** No automatic fine calculation.
+7. **Flex mode = committed amounts.** Each member commits to a per-round amount.
+8. **Round display = "Round N"** — no date math for round names.
+9. **Member names are cycle-scoped.** Same person in two cycles = two records.
+
+---
+
+## 15. Migration Notes from v2.0
+
+- Dexie.js is completely removed. No migration needed.
+- Old `rosca_members` collection must be manually deleted from PocketBase.
+- Create new `rosca_cycle_members` collection.
+- Add `contributionMode`, `fixedAmountPerPerson`, `terms*` fields to `rosca_cycles`.
+- Add `deletedAt` to all collections.
+- Create `rosca_audit_logs` collection.
+- Existing cycles lose their member references (must re-add members manually or via script).
+- Old hard-deleted records are gone forever (by design, this is a new paradigm).
+
+---
+
+*Document Version: 3.0*  
+*Architecture: PocketBase-First with Realtime Sync, Soft Deletes & Audit Trails*  
+*Last Updated: 2026-06-14*
 
 **Version:** 2.0  
 **Date:** 2026-05-21  

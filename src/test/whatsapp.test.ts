@@ -1,33 +1,38 @@
 import { describe, expect, it } from 'vitest'
 import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
-import type { Contribution, Cycle, Member, Payout } from '../types'
+import type { Contribution, Cycle, CycleMember, Payout } from '../types'
 
 const cycle: Cycle = {
   id: 'c1',
   name: 'Tontine Famille 2026',
-  amountPerPerson: 10000,
+  contributionMode: 'fixed',
+  fixedAmountPerPerson: 10000,
   frequency: 'monthly',
   startDate: new Date('2026-01-01'),
   status: 'active',
-  memberIds: ['m1', 'm2'],
   payoutOrder: ['m1', 'm2'],
   defaultPaymentMethod: 'cash',
   totalRounds: 12,
   closedRounds: [],
+  terms: {},
 }
 
-const members: Member[] = [
+const members: CycleMember[] = [
   {
     id: 'm1',
+    cycleId: 'c1',
     name: 'Marie',
     phone: '+237699000000',
     joinDate: new Date(),
+    contributionAmount: 10000,
   },
   {
     id: 'm2',
+    cycleId: 'c1',
     name: 'Jean',
     phone: '+237677000000',
     joinDate: new Date(),
+    contributionAmount: 10000,
   },
 ]
 
@@ -38,6 +43,7 @@ const contributions: Contribution[] = [
     memberId: 'm1',
     amount: 10000,
     date: new Date('2026-01-02'),
+    roundNumber: 1,
     method: 'cash',
   },
 ]

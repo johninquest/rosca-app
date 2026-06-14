@@ -1,9 +1,9 @@
-import type { Contribution, Cycle, Member, Payout } from '../types'
+import type { Contribution, Cycle, CycleMember, Payout } from '../types'
 import { formatAmount } from './format'
 
 interface BuildRoscaWhatsAppInput {
   cycle: Cycle
-  members: Member[]
+  members: CycleMember[]
   contributions: Contribution[]
   payouts?: Payout[]
 }

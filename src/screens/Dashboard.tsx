@@ -26,13 +26,6 @@ export default function Dashboard() {
           </button>
           <button
             type="button"
-            onClick={() => setScreen('members')}
-            className="px-3 py-2 rounded-lg border border-border text-sm"
-          >
-            {t('dashboard.members')}
-          </button>
-          <button
-            type="button"
             onClick={() => setScreen('settings')}
             className="px-3 py-2 rounded-lg border border-border text-sm"
           >

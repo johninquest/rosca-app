@@ -80,9 +80,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     pb.authStore.clear()
     useCycleStore.setState({
       cycles: [],
-      members: [],
+      cycleMembers: [],
       contributions: [],
       payouts: [],
+      auditLogs: [],
     })
     set({ isAuthenticated: false, user: null })
   },

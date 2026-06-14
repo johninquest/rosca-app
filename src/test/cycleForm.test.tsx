@@ -3,43 +3,36 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom/vitest'
 import CycleForm from '../components/CycleForm'
-import type { Member } from '../types'
-
-const members: Member[] = [
-  {
-    id: 'm1',
-    name: 'Marie',
-    phone: '+237699000000',
-    joinDate: new Date(),
-  },
-]
 
 describe('CycleForm', () => {
   it('submits valid cycle values', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     const user = userEvent.setup()
 
-    render(<CycleForm members={members} onSubmit={onSubmit} />)
+    render(<CycleForm onSubmit={onSubmit} />)
 
+    await user.clear(screen.getByLabelText(/cycle name/i))
     await user.type(screen.getByLabelText(/cycle name/i), 'Tontine Q1')
+
+    await user.clear(screen.getByLabelText(/amount per person/i))
     await user.type(screen.getByLabelText(/amount per person/i), '10000')
-    await user.click(screen.getByRole('checkbox'))
+
+    await user.clear(screen.getByLabelText(/number of rounds/i))
+    await user.type(screen.getByLabelText(/number of rounds/i), '12')
+
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
-  it('shows validation when no member is selected', async () => {
+  it('requires cycle name', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     const user = userEvent.setup()
 
-    render(<CycleForm members={members} onSubmit={onSubmit} />)
-
-    await user.type(screen.getByLabelText(/cycle name/i), 'Tontine Q1')
-    await user.type(screen.getByLabelText(/amount per person/i), '10000')
+    render(<CycleForm onSubmit={onSubmit} />)
     await user.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(await screen.findByText(/select at least one member/i)).toBeInTheDocument()
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
   })
 })

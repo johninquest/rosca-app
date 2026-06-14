@@ -3,11 +3,8 @@ import Layout from './components/layout/Layout'
 import Spinner from './components/Spinner'
 import Auth from './screens/Auth'
 import AddCycle from './screens/AddCycle'
-import AddMember from './screens/AddMember'
 import CycleDetail from './screens/CycleDetail'
 import Dashboard from './screens/Dashboard'
-import EditMember from './screens/EditMember'
-import Members from './screens/Members'
 import Settings from './screens/Settings'
 import { useAppStore } from './stores/useAppStore'
 import { useAuthStore } from './stores/useAuthStore'
@@ -18,9 +15,6 @@ const screens = {
   dashboard: Dashboard,
   cycleDetail: CycleDetail,
   addCycle: AddCycle,
-  addMember: AddMember,
-  editMember: EditMember,
-  members: Members,
   settings: Settings,
 } as const
 
@@ -36,7 +30,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) {
       stopRealtimeSync()
-      useCycleStore.setState({ cycles: [], members: [], contributions: [], payouts: [] })
+      useCycleStore.setState({ cycles: [], cycleMembers: [], contributions: [], payouts: [], auditLogs: [] })
       return
     }
 
