@@ -273,6 +273,7 @@ export default function CycleDetail() {
       })
       setShowAddMember(false)
       setEditingMemberId(null)
+      setActiveTab('members')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add member.')
     }

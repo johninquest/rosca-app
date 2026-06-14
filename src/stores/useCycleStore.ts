@@ -220,7 +220,9 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       owner: pb.authStore.record?.id,
     })
     const cycle = mapCycle(record)
-    set((state) => ({ cycles: [cycle, ...state.cycles] }))
+    set((state) => ({
+      cycles: state.cycles.some((c) => c.id === cycle.id) ? state.cycles : [cycle, ...state.cycles],
+    }))
 
     await logAuditEvent({
       cycleId: cycle.id,
@@ -317,7 +319,11 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       owner: pb.authStore.record?.id,
     })
     const member = mapCycleMember(record)
-    set((state) => ({ cycleMembers: [...state.cycleMembers, member] }))
+    set((state) => ({
+      cycleMembers: state.cycleMembers.some((m) => m.id === member.id)
+        ? state.cycleMembers
+        : [...state.cycleMembers, member],
+    }))
 
     // Also update cycle payoutOrder to include new member
     const cycle = get().cycles.find((c) => c.id === data.cycleId)
@@ -420,7 +426,11 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       owner: pb.authStore.record?.id,
     })
     const contribution = mapContribution(record)
-    set((state) => ({ contributions: [contribution, ...state.contributions] }))
+    set((state) => ({
+      contributions: state.contributions.some((c) => c.id === contribution.id)
+        ? state.contributions
+        : [contribution, ...state.contributions],
+    }))
 
     await logAuditEvent({
       cycleId: data.cycleId,
@@ -494,7 +504,11 @@ export const useCycleStore = create<CycleState>((set, get) => ({
       owner: pb.authStore.record?.id,
     })
     const payout = mapPayout(record)
-    set((state) => ({ payouts: [payout, ...state.payouts] }))
+    set((state) => ({
+      payouts: state.payouts.some((p) => p.id === payout.id)
+        ? state.payouts
+        : [payout, ...state.payouts],
+    }))
 
     await logAuditEvent({
       cycleId: data.cycleId,
@@ -581,7 +595,7 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     try {
       const userId = pb.authStore.record?.id
       const filter = userId
-        ? `cycleId = "${cycleId}" && owner = "${userId}"`
+        ? `cycleId = "${cycleId}" && performedBy = "${userId}"`
         : `cycleId = "${cycleId}"`
       const records = await pb
         .collection('rosca_audit_logs')
