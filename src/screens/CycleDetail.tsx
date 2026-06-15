@@ -410,10 +410,10 @@ export default function CycleDetail() {
             const isClosed = cycle.closedRounds.includes(roundNumber)
             const isPaid = Boolean(roundPayout)
 
-            const cardClass = isPaid
-              ? 'bg-teal-light border-teal-border'
-              : isClosed
-                ? 'bg-closed-bg border-closed-border'
+            const cardClass = isClosed
+              ? 'bg-closed-bg border-closed-border'
+              : isPaid
+                ? 'bg-teal-light border-teal-border'
                 : 'bg-white border-border'
 
             return (
