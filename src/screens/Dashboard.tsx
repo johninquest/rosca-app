@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAppStore } from '../stores/useAppStore'
+import { useLocation } from 'wouter'
 import { useCycleStore } from '../stores/useCycleStore'
 
 export default function Dashboard() {
   const { t } = useTranslation()
   const { cycles, isLoading, loadAll, getCycleTotal } = useCycleStore()
-  const { openCycleDetail, setScreen } = useAppStore()
+  const [, navigate] = useLocation()
 
   useEffect(() => {
     void loadAll()
@@ -19,14 +19,14 @@ export default function Dashboard() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setScreen('addCycle')}
+            onClick={() => navigate('/cycles/new')}
             className="px-3 py-2 rounded-lg border border-border text-sm"
           >
             {t('dashboard.newCycle')}
           </button>
           <button
             type="button"
-            onClick={() => setScreen('settings')}
+            onClick={() => navigate('/settings')}
             className="px-3 py-2 rounded-lg border border-border text-sm"
           >
             {t('dashboard.settings')}
@@ -47,7 +47,7 @@ export default function Dashboard() {
           <button
             key={cycle.id}
             type="button"
-            onClick={() => openCycleDetail(cycle.id)}
+            onClick={() => navigate(`/cycles/${cycle.id}`)}
             className="w-full text-left bg-white border border-border rounded-xl p-4 hover:border-text-primary transition-colors"
           >
             <div className="flex items-center justify-between gap-3">

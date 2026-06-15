@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react'
+import { useLocation } from 'wouter'
 import Navbar from '../Navbar'
-import { useAppStore } from '../../stores/useAppStore'
 
 interface LayoutProps {
   children: ReactNode
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const screen = useAppStore((state) => state.screen)
-  const showBack = screen !== 'dashboard'
+  const [location] = useLocation()
+  const showBack = location !== '/'
 
   return (
     <div className="min-h-dvh bg-bg">

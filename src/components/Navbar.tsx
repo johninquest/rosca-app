@@ -1,5 +1,5 @@
+import { useLocation } from 'wouter'
 import { useAuthStore } from '../stores/useAuthStore'
-import { useAppStore } from '../stores/useAppStore'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
 const IconUser = () => (
@@ -63,7 +63,7 @@ interface NavbarProps {
 export default function Navbar({ showBack = false }: NavbarProps) {
   const isOnline = useOnlineStatus()
   const { user, logout } = useAuthStore()
-  const { goBack, setScreen } = useAppStore()
+  const [, navigate] = useLocation()
 
   return (
     <>
@@ -73,7 +73,7 @@ export default function Navbar({ showBack = false }: NavbarProps) {
             {showBack && (
               <button
                 type="button"
-                onClick={goBack}
+                onClick={() => navigate('/')}
                 className="w-9 h-9 flex items-center justify-center rounded-full text-text-secondary hover:text-text-primary hover:bg-[#F0F0F0] transition-colors -ml-2 mr-1"
                 aria-label="Go back"
               >
@@ -82,7 +82,7 @@ export default function Navbar({ showBack = false }: NavbarProps) {
             )}
             <button
               type="button"
-              onClick={() => setScreen('dashboard')}
+              onClick={() => navigate('/')}
               className="font-semibold text-text-primary tracking-tight"
             >
               Njangi Manager
@@ -94,7 +94,7 @@ export default function Navbar({ showBack = false }: NavbarProps) {
             {user && (
               <button
                 type="button"
-                onClick={() => setScreen('settings')}
+                onClick={() => navigate('/settings')}
                 aria-label="Open settings"
                 title="Open settings"
                 className="w-9 h-9 flex items-center justify-center rounded-full text-text-secondary hover:text-text-primary hover:bg-[#F0F0F0] transition-colors"

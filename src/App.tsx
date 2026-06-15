@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Switch, Route, Redirect } from 'wouter'
 import Layout from './components/layout/Layout'
 import Spinner from './components/Spinner'
 import Auth from './screens/Auth'
@@ -6,21 +7,12 @@ import AddCycle from './screens/AddCycle'
 import CycleDetail from './screens/CycleDetail'
 import Dashboard from './screens/Dashboard'
 import Settings from './screens/Settings'
-import { useAppStore } from './stores/useAppStore'
 import { useAuthStore } from './stores/useAuthStore'
 import { useCycleStore } from './stores/useCycleStore'
 import { startRealtimeSync, stopRealtimeSync } from './services/sync-engine'
 
-const screens = {
-  dashboard: Dashboard,
-  cycleDetail: CycleDetail,
-  addCycle: AddCycle,
-  settings: Settings,
-} as const
-
 export default function App() {
   const { isAuthenticated, isLoading, init } = useAuthStore()
-  const { screen } = useAppStore()
   const { loadAll } = useCycleStore()
 
   useEffect(() => {
@@ -47,11 +39,17 @@ export default function App() {
     return <Auth />
   }
 
-  const Screen = screens[screen] || Dashboard
-
   return (
     <Layout>
-      <Screen />
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/cycles/new" component={AddCycle} />
+        <Route path="/cycles/:cycleId" component={CycleDetail} />
+        <Route path="/settings" component={Settings} />
+        <Route>
+          <Redirect to="/" />
+        </Route>
+      </Switch>
     </Layout>
   )
 }

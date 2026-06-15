@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation, useParams } from 'wouter'
 import ConfirmDialog from '../components/ConfirmDialog'
 import CycleMemberForm, { type CycleMemberFormValues } from '../components/CycleMemberForm'
 import { pb } from '../services/pocketbase'
-import { useAppStore } from '../stores/useAppStore'
 import { useCycleStore } from '../stores/useCycleStore'
 import { exportCycleContributionsCSV, exportCycleContributionsPDF } from '../utils/export'
 import { formatAmount, todayISO } from '../utils/format'
@@ -24,7 +24,8 @@ const frequencyLabels: Record<string, string> = {
 
 export default function CycleDetail() {
   const { t, i18n } = useTranslation()
-  const { selectedCycleId, goDashboard } = useAppStore()
+  const { cycleId } = useParams<{ cycleId: string }>()
+  const [, navigate] = useLocation()
   const {
     cycles,
     cycleMembers,
@@ -49,8 +50,8 @@ export default function CycleDetail() {
   } = useCycleStore()
 
   const cycle = useMemo(
-    () => cycles.find((item) => item.id === selectedCycleId) ?? null,
-    [cycles, selectedCycleId],
+    () => cycles.find((item) => item.id === cycleId) ?? null,
+    [cycles, cycleId],
   )
 
   const [activeTab, setActiveTab] = useState<'rounds' | 'members' | 'payouts' | 'audit'>('rounds')
@@ -241,7 +242,7 @@ export default function CycleDetail() {
     setIsDeletingCycle(true)
     try {
       await deleteCycle(cycle.id)
-      goDashboard()
+      navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : t('cycle.deleteError'))
     } finally {

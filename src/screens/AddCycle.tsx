@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'wouter'
 import CycleForm, { type CycleFormValues } from '../components/CycleForm'
-import { useAppStore } from '../stores/useAppStore'
 import { useCycleStore } from '../stores/useCycleStore'
 
 export default function AddCycle() {
   const { t } = useTranslation()
-  const { goDashboard } = useAppStore()
+  const [, navigate] = useLocation()
   const { addCycle } = useCycleStore()
 
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +29,7 @@ export default function AddCycle() {
           otherRules: values.termsOtherRules,
         },
       })
-      goDashboard()
+      navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save cycle. Please try again.')
     }
@@ -44,7 +44,7 @@ export default function AddCycle() {
         )}
         <CycleForm onSubmit={handleSubmit} submitLabel={t('common.save')} />
       </div>
-      <button type="button" onClick={goDashboard} className="w-full py-2.5 border border-border rounded-xl text-sm">
+      <button type="button" onClick={() => navigate('/')} className="w-full py-2.5 border border-border rounded-xl text-sm">
         {t('common.cancel')}
       </button>
     </section>
