@@ -27,7 +27,7 @@
   "cycle.shareWhatsApp": "Share WhatsApp",
   "cycle.delete": "Delete Njangi",
   "cycle.deleteConfirmTitle": "Delete this Njangi?",
-  "cycle.deleteConfirmMessage": "This will permanently remove the Njangi and all its members, contributions and payouts.",
+  "cycle.deleteConfirmMessage": "This action will delete this entire Njangi including its members, contributions and payouts.",
   "cycle.deleteError": "Failed to delete Njangi.",
   "cycle.beneficiary": "Round beneficiary",
   "cycle.notFound": "Cycle not found.",
