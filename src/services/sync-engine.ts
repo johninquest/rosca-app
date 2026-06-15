@@ -42,9 +42,7 @@ export function stopRealtimeSync(): void {
 function handleRealtimeEvent(collection: string, event: RecordSubscription<any>): void {
   const { action, record } = event
 
-  // For soft deletes: treat an update that sets deletedAt as a delete
-  const isSoftDelete =
-    action === 'update' && record.deletedAt != null
+  const isSoftDelete = action === 'update' && Boolean(record.deletedAt)
 
   switch (collection) {
     case 'rosca_cycle_members': {
