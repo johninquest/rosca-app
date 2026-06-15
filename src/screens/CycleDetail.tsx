@@ -2,25 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useParams } from 'wouter'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ContributionDialog from '../components/ContributionDialog'
+import CycleForm, { type CycleFormValues } from '../components/CycleForm'
 import CycleMemberForm, { type CycleMemberFormValues } from '../components/CycleMemberForm'
 import { pb } from '../services/pocketbase'
 import { useCycleStore } from '../stores/useCycleStore'
 import { exportCycleContributionsCSV, exportCycleContributionsPDF } from '../utils/export'
 import { formatAmount, todayISO } from '../utils/format'
 import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
-import type { ContributionMode, PaymentMethod } from '../types'
-
-const paymentMethodLabels: Record<PaymentMethod, string> = {
-  cash: 'Cash',
-  bank_transfer: 'Bank transfer',
-  mobile_money: 'Mobile money',
-}
-
-const frequencyLabels: Record<string, string> = {
-  weekly: 'Weekly',
-  biweekly: 'Bi-weekly',
-  monthly: 'Monthly',
-}
+import type { Contribution, ContributionMode, CycleMember, PaymentMethod } from '../types'
 
 export default function CycleDetail() {
   const { t, i18n } = useTranslation()
@@ -46,6 +36,7 @@ export default function CycleDetail() {
     deletePayout,
     closeRound,
     deleteCycle,
+    updateCycle,
     loadAuditLogs,
   } = useCycleStore()
 
@@ -58,9 +49,6 @@ export default function CycleDetail() {
   const [showAddMember, setShowAddMember] = useState(false)
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
-  const [editingContributionId, setEditingContributionId] = useState<string | null>(null)
-  const [editMethod, setEditMethod] = useState<PaymentMethod>('cash')
-  const [editNotes, setEditNotes] = useState('')
   const [savingMemberKey, setSavingMemberKey] = useState<string | null>(null)
   const [savingPayoutRound, setSavingPayoutRound] = useState<number | null>(null)
   const [closingRound, setClosingRound] = useState<number | null>(null)
@@ -70,6 +58,11 @@ export default function CycleDetail() {
   const [payoutAmountByRound, setPayoutAmountByRound] = useState<Record<number, string>>({})
   const [payoutDateByRound, setPayoutDateByRound] = useState<Record<number, string>>({})
   const [error, setError] = useState<string | null>(null)
+  const [editingCycle, setEditingCycle] = useState(false)
+  const [contributionDialogOpen, setContributionDialogOpen] = useState(false)
+  const [contributionDialogMember, setContributionDialogMember] = useState<CycleMember | null>(null)
+  const [contributionDialogRound, setContributionDialogRound] = useState<number | null>(null)
+  const [contributionDialogExisting, setContributionDialogExisting] = useState<Contribution | null>(null)
   const pendingToggleKeysRef = useRef<Set<string>>(new Set())
 
   const cycleMembersList = useMemo(
@@ -96,7 +89,7 @@ export default function CycleDetail() {
   if (!cycle) {
     return (
       <div className="bg-white border border-border rounded-xl p-4 text-text-secondary">
-        Cycle not found.
+        {t('cycle.notFound')}
       </div>
     )
   }
@@ -133,68 +126,65 @@ export default function CycleDetail() {
 
   const roundExpectedTotal = getRoundExpectedTotal(cycle.id)
 
-  const beginEditContribution = (contributionId: string) => {
-    const contribution = cycleContributions.find((item) => item.id === contributionId)
-    if (!contribution) return
-    setEditingContributionId(contribution.id)
-    setEditMethod(contribution.method)
-    setEditNotes(contribution.notes ?? '')
+  const openContributionDialog = (member: CycleMember, roundNumber: number, existing?: Contribution | null) => {
+    setContributionDialogMember(member)
+    setContributionDialogRound(roundNumber)
+    setContributionDialogExisting(existing ?? null)
+    setContributionDialogOpen(true)
   }
 
-  const saveContributionEdit = async () => {
-    if (!editingContributionId) return
+  const closeContributionDialog = () => {
+    setContributionDialogOpen(false)
+    setContributionDialogMember(null)
+    setContributionDialogRound(null)
+    setContributionDialogExisting(null)
+  }
+
+  const handleContributionSave = async (data: {
+    amount: number
+    method: PaymentMethod
+    date: Date
+    notes: string
+  }) => {
+    if (!contributionDialogMember || contributionDialogRound === null) return
+
     setError(null)
     try {
-      await updateContribution(editingContributionId, {
-        method: editMethod,
-        notes: editNotes,
-      })
-      setEditingContributionId(null)
-      setEditNotes('')
+      if (contributionDialogExisting) {
+        await updateContribution(contributionDialogExisting.id, {
+          amount: data.amount,
+          method: data.method,
+          date: data.date,
+          notes: data.notes,
+        })
+      } else {
+        await addContribution({
+          cycleId: cycle.id,
+          memberId: contributionDialogMember.id,
+          amount: data.amount,
+          date: data.date,
+          roundNumber: contributionDialogRound,
+          method: data.method,
+          notes: data.notes,
+        })
+      }
+      closeContributionDialog()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update contribution.')
+      setError(err instanceof Error ? err.message : 'Failed to save contribution.')
     }
   }
 
-  const toggleMemberPaid = async (roundNumber: number, memberId: string, isPaid: boolean) => {
-    if (cycle.closedRounds.map(Number).includes(roundNumber)) return
-
-    const member = cycleMembersList.find((m) => m.id === memberId)
-    if (!member) return
-
-    const key = `${roundNumber}:${memberId}`
-    if (pendingToggleKeysRef.current.has(key)) return
-
-    pendingToggleKeysRef.current.add(key)
+  const handleUpdateCycle = async (values: CycleFormValues) => {
     setError(null)
-    setSavingMemberKey(key)
     try {
-      const existingContributions = getRoundContributions(memberId, roundNumber)
-
-      if (!isPaid && existingContributions.length > 0) {
-        await Promise.all(existingContributions.map((item) => deleteContribution(item.id)))
-      }
-
-      if (isPaid && existingContributions.length === 0) {
-        await addContribution({
-          cycleId: cycle.id,
-          memberId,
-          amount: member.contributionAmount,
-          date: new Date(),
-          roundNumber,
-          method: cycle.defaultPaymentMethod,
-          notes: '',
-        })
-      }
-
-      if (isPaid && existingContributions.length > 1) {
-        await Promise.all(existingContributions.slice(1).map((item) => deleteContribution(item.id)))
-      }
+      await updateCycle(cycle.id, {
+        startDate: new Date(values.startDate),
+        defaultPaymentMethod: values.defaultPaymentMethod,
+        fixedAmountPerPerson: values.fixedAmountPerPerson,
+      })
+      setEditingCycle(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update payment status.')
-    } finally {
-      pendingToggleKeysRef.current.delete(key)
-      setSavingMemberKey(null)
+      setError(err instanceof Error ? err.message : t('cycleForm.updateError'))
     }
   }
 
@@ -300,38 +290,78 @@ export default function CycleDetail() {
       <div className="bg-white border border-border rounded-xl p-4 space-y-1">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl font-semibold text-text-primary">{cycle.name}</h1>
-          <span className="text-xs px-2 py-1 rounded-full bg-[#F0F0F0] text-text-secondary">
-            {cycle.status}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2 py-1 rounded-full bg-[#F0F0F0] text-text-secondary">
+              {cycle.status}
+            </span>
+            {!editingCycle && (
+              <button
+                type="button"
+                onClick={() => setEditingCycle(true)}
+                className="text-xs px-2 py-1 rounded-lg border border-border text-text-secondary hover:bg-bg transition-colors"
+              >
+                {t('cycle.edit')}
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-sm text-text-secondary">
-          {frequencyLabels[cycle.frequency] ?? cycle.frequency} — {cycle.totalRounds} rounds
+          {t(`frequency.${cycle.frequency}`)} — {cycle.totalRounds} {t('cycle.round').toLowerCase()}
         </p>
         <p className="text-sm text-text-secondary">
           {t('cycle.total')}: {formatAmount(getCycleTotal(cycle.id))}
         </p>
         <p className="text-sm text-text-secondary">
-          Rounds closed: {cycle.closedRounds.length} / {cycle.totalRounds}
+          {t('cycle.roundsClosed')}: {cycle.closedRounds.length} / {cycle.totalRounds}
         </p>
         {cycle.contributionMode === 'fixed' && cycle.fixedAmountPerPerson && (
           <p className="text-sm text-text-secondary">
-            Fixed amount: {formatAmount(cycle.fixedAmountPerPerson)}
+            {t('cycle.fixedAmount')}: {formatAmount(cycle.fixedAmountPerPerson)}
           </p>
         )}
         {cycle.contributionMode === 'flex' && (
-          <p className="text-sm text-text-secondary">Flexible contributions</p>
+          <p className="text-sm text-text-secondary">{t('cycle.flexibleContributions')}</p>
         )}
         {cycle.terms.latePaymentPolicy && (
           <p className="text-xs text-text-secondary mt-1">
-            Late policy: {cycle.terms.latePaymentPolicy}
+            {t('cycle.latePolicy')}: {cycle.terms.latePaymentPolicy}
           </p>
         )}
         {typeof cycle.terms.fineAmount === 'number' && cycle.terms.fineAmount > 0 && (
           <p className="text-xs text-text-secondary">
-            Fine: {formatAmount(cycle.terms.fineAmount)}
+            {t('cycle.fine')}: {formatAmount(cycle.terms.fineAmount)}
           </p>
         )}
       </div>
+
+      {editingCycle && (
+        <div className="bg-white border border-border rounded-xl p-4 space-y-3">
+          <h2 className="text-lg font-semibold text-text-primary">{t('cycle.edit')}</h2>
+          <CycleForm
+            editMode
+            defaultValues={{
+              name: cycle.name,
+              contributionMode: cycle.contributionMode,
+              fixedAmountPerPerson: cycle.fixedAmountPerPerson,
+              frequency: cycle.frequency,
+              startDate: cycle.startDate.toISOString().slice(0, 10),
+              totalRounds: cycle.totalRounds,
+              defaultPaymentMethod: cycle.defaultPaymentMethod,
+              termsLatePaymentPolicy: cycle.terms.latePaymentPolicy,
+              termsFineAmount: cycle.terms.fineAmount,
+              termsOtherRules: cycle.terms.otherRules,
+            }}
+            onSubmit={handleUpdateCycle}
+          />
+          <button
+            type="button"
+            onClick={() => setEditingCycle(false)}
+            className="w-full py-2 rounded-lg border border-border text-sm text-text-secondary"
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>
@@ -340,10 +370,10 @@ export default function CycleDetail() {
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {[
-          { key: 'rounds' as const, label: 'Rounds' },
-          { key: 'members' as const, label: `Members (${cycleMembersList.length})` },
-          { key: 'payouts' as const, label: 'Payouts' },
-          { key: 'audit' as const, label: 'History' },
+          { key: 'rounds' as const, label: t('cycle.tab.rounds') },
+          { key: 'members' as const, label: t('cycle.tab.members', { count: cycleMembersList.length }) },
+          { key: 'payouts' as const, label: t('cycle.tab.payouts') },
+          { key: 'audit' as const, label: t('cycle.tab.history') },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -387,99 +417,57 @@ export default function CycleDetail() {
                   className="w-full px-4 py-3 flex items-center justify-between text-sm"
                 >
                   <span className="font-medium text-text-primary">
-                    Round {roundNumber}
+                    {t('cycle.round')} {roundNumber}
                   </span>
                   <span className="text-text-secondary">
-                    {isClosed ? 'Closed' : 'Open'}
+                    {isClosed ? t('cycle.round.closed') : t('cycle.round.open')}
                   </span>
                 </button>
 
                 {isRoundExpanded(roundNumber) && (
                   <div className="border-t border-border p-4 space-y-3">
                     <p className="text-sm text-text-secondary">
-                      Collected: {formatAmount(roundCollected)} / {formatAmount(roundExpectedTotal)}
+                      {t('cycle.round.collected')}: {formatAmount(roundCollected)} / {formatAmount(roundExpectedTotal)}
                     </p>
 
                     <div className="space-y-2">
                       {cycleMembersList.map((member) => {
                         const contribution = getRoundContribution(member.id, roundNumber)
-                        const isPaid = Boolean(contribution)
-                        const saveKey = `${roundNumber}:${member.id}`
+                        const hasContribution = Boolean(contribution)
 
                         return (
                           <div key={member.id} className="border border-border rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between gap-3 text-sm">
-                              <label className="flex items-center gap-2 text-text-primary">
-                                <input
-                                  type="checkbox"
-                                  checked={isPaid}
-                                  disabled={isClosed || savingMemberKey === saveKey}
-                                  onChange={(event) => {
-                                    void toggleMemberPaid(roundNumber, member.id, event.target.checked)
-                                  }}
-                                />
-                                {member.name}
-                              </label>
+                              <span className="text-text-primary font-medium">{member.name}</span>
                               <span className="text-text-secondary">{formatAmount(member.contributionAmount)}</span>
                             </div>
 
-                            {isPaid && contribution && (
-                              <div className="text-xs text-text-secondary flex items-center justify-between gap-2">
-                                <span>Method: {paymentMethodLabels[contribution.method]}</span>
+                            {hasContribution && contribution && (
+                              <div className="text-xs text-text-secondary space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span>{t('cycle.round.method')}: {t(`payment.${contribution.method}`)}</span>
+                                  <span>{contribution.date.toLocaleDateString()}</span>
+                                </div>
                                 {!isClosed && (
                                   <button
                                     type="button"
-                                    onClick={() => beginEditContribution(contribution.id)}
+                                    onClick={() => openContributionDialog(member, roundNumber, contribution)}
                                     className="underline text-text-primary"
                                   >
-                                    Edit
+                                    {t('cycle.round.editContribution')}
                                   </button>
                                 )}
                               </div>
                             )}
 
-                            {editingContributionId === contribution?.id && !isClosed && (
-                              <div className="pt-2 border-t border-border space-y-2">
-                                <div>
-                                  <label className="block text-xs text-text-secondary mb-1">Method</label>
-                                  <select
-                                    value={editMethod}
-                                    onChange={(event) => {
-                                      setEditMethod(event.target.value as PaymentMethod)
-                                    }}
-                                    className="w-full px-3 py-2 border border-border rounded-lg text-sm"
-                                  >
-                                    <option value="cash">Cash</option>
-                                    <option value="bank_transfer">Bank transfer</option>
-                                    <option value="mobile_money">Mobile money</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-text-secondary mb-1">Notes</label>
-                                  <input
-                                    value={editNotes}
-                                    onChange={(event) => setEditNotes(event.target.value)}
-                                    className="w-full px-3 py-2 border border-border rounded-lg text-sm"
-                                    placeholder="Optional"
-                                  />
-                                </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => void saveContributionEdit()}
-                                    className="px-3 py-2 rounded-lg bg-text-primary text-white text-xs"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingContributionId(null)}
-                                    className="px-3 py-2 rounded-lg border border-border text-xs text-text-secondary"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
+                            {!hasContribution && !isClosed && (
+                              <button
+                                type="button"
+                                onClick={() => openContributionDialog(member, roundNumber)}
+                                className="w-full py-2 rounded-lg bg-text-primary text-white text-xs"
+                              >
+                                {t('cycle.round.makeContribution')}
+                              </button>
                             )}
                           </div>
                         )
@@ -487,18 +475,22 @@ export default function CycleDetail() {
                     </div>
 
                     <div className="border-t border-border pt-3 space-y-3">
-                      <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Payout</p>
+                      <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                        {t('cycle.round.payout')}
+                      </p>
                       {roundPayout ? (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-text-primary">
-                            {beneficiary?.name ?? 'Unknown beneficiary'}
+                            {beneficiary?.name ?? t('cycle.payout.unknown')}
                           </span>
                           <span className="text-text-secondary">{formatAmount(roundPayout.amount)}</span>
                         </div>
                       ) : (
                         !isClosed && beneficiary && (
                           <div className="space-y-2">
-                            <p className="text-sm text-text-secondary">Beneficiary: {beneficiary.name}</p>
+                            <p className="text-sm text-text-secondary">
+                              {t('cycle.round.beneficiary')}: {beneficiary.name}
+                            </p>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                               <input
                                 type="number"
@@ -529,7 +521,7 @@ export default function CycleDetail() {
                                 onClick={() => void handlePayout(roundNumber, beneficiary.id, roundExpectedTotal)}
                                 className="px-3 py-2 rounded-lg border border-border text-sm text-text-primary disabled:opacity-50"
                               >
-                                Record payout
+                                {t('cycle.round.recordPayout')}
                               </button>
                             </div>
                           </div>
@@ -543,7 +535,7 @@ export default function CycleDetail() {
                           onClick={() => void handleCloseRound(roundNumber)}
                           className="px-3 py-2 rounded-lg bg-text-primary text-white text-sm disabled:opacity-50"
                         >
-                          Close round
+                          {t('cycle.round.closeRound')}
                         </button>
                       )}
                     </div>
@@ -560,7 +552,7 @@ export default function CycleDetail() {
         <div className="space-y-3">
           {cycleMembersList.length === 0 && (
             <div className="bg-white border border-border rounded-xl p-4 text-text-secondary text-sm">
-              No members yet. Add members to start tracking contributions.
+              {t('members.noMembers')}
             </div>
           )}
 
@@ -575,19 +567,19 @@ export default function CycleDetail() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <p className="font-medium text-text-primary">{member.name}</p>
-                      <p className="text-sm text-text-secondary">{member.phone || 'No phone'}</p>
+                      <p className="text-sm text-text-secondary">{member.phone || t('members.noPhone')}</p>
                       <p className="text-sm text-text-secondary">
-                        Contribution: {formatAmount(member.contributionAmount)}
+                        {t('members.contribution')}: {formatAmount(member.contributionAmount)}
                       </p>
                       <p className="text-sm text-text-secondary">
-                        Total contributed: {formatAmount(totalContributed)}
+                        {t('members.totalContributed')}: {formatAmount(totalContributed)}
                       </p>
                       <p
                         className={`text-sm font-medium ${
                           netPosition >= 0 ? 'text-emerald-700' : 'text-red-700'
                         }`}
                       >
-                        Net position: {netPosition >= 0 ? '+' : ''}
+                        {t('members.netPosition')}: {netPosition >= 0 ? '+' : ''}
                         {formatAmount(netPosition)}
                       </p>
                     </div>
@@ -597,7 +589,7 @@ export default function CycleDetail() {
                         onClick={() => setEditingMemberId(member.id)}
                         className="text-xs text-text-secondary underline"
                       >
-                        Edit
+                        {t('common.edit')}
                       </button>
                     </div>
                   </div>
@@ -611,7 +603,7 @@ export default function CycleDetail() {
                         contributionAmount: member.contributionAmount,
                       }}
                       defaultAmount={cycle.fixedAmountPerPerson}
-                      submitLabel="Update"
+                      submitLabel={t('memberForm.update')}
                       onSubmit={(values) => void onUpdateMember(member.id, values)}
                     />
                     <button
@@ -619,7 +611,7 @@ export default function CycleDetail() {
                       onClick={() => setEditingMemberId(null)}
                       className="w-full py-2 rounded-lg border border-border text-sm text-text-secondary"
                     >
-                      Cancel
+                      {t('common.cancel')}
                     </button>
                   </div>
                 )}
@@ -633,14 +625,15 @@ export default function CycleDetail() {
               onClick={() => setShowAddMember(true)}
               className="w-full py-2.5 rounded-lg border border-border text-sm text-text-primary"
             >
-              + Add member
+              {t('cycle.round.addMember')}
             </button>
           ) : (
             <div className="bg-white border border-border rounded-xl p-4 space-y-3">
-              <h3 className="font-medium text-text-primary text-sm">Add member</h3>
+              <h3 className="font-medium text-text-primary text-sm">{t('members.addTitle')}</h3>
               <CycleMemberForm
                 defaultAmount={cycle.fixedAmountPerPerson}
-                submitLabel="Add member"
+                defaultJoinDate={cycle.startDate.toISOString().slice(0, 10)}
+                submitLabel={t('memberForm.addMember')}
                 onSubmit={(values) => void onAddMember(values)}
               />
               <button
@@ -648,7 +641,7 @@ export default function CycleDetail() {
                 onClick={() => setShowAddMember(false)}
                 className="w-full py-2 rounded-lg border border-border text-sm text-text-secondary"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           )}
@@ -659,7 +652,7 @@ export default function CycleDetail() {
       {activeTab === 'payouts' && (
         <div className="bg-white border border-border rounded-xl divide-y divide-border">
           {cyclePayouts.length === 0 && (
-            <p className="text-sm text-text-secondary p-4">No payouts recorded yet.</p>
+            <p className="text-sm text-text-secondary p-4">{t('cycle.payout.empty')}</p>
           )}
           {cyclePayouts.map((payout) => {
             const beneficiary = cycleMembersList.find((m) => m.id === payout.memberId)
@@ -667,19 +660,19 @@ export default function CycleDetail() {
               <div key={payout.id} className="px-4 py-3 flex items-center justify-between gap-3">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-text-primary">
-                    Round {payout.roundNumber}
+                    {t('cycle.round')} {payout.roundNumber}
                   </p>
                   <p className="text-xs text-text-secondary">
-                    {beneficiary?.name ?? 'Unknown'} — {formatAmount(payout.amount)}
+                    {beneficiary?.name ?? t('cycle.payout.unknown')} — {formatAmount(payout.amount)}
                   </p>
-                  <p className="text-xs text-text-secondary">{formatAmount(payout.amount)}</p>
+                  <p className="text-xs text-text-secondary">{payout.date.toLocaleDateString()}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setConfirmDeletePayoutId(payout.id)}
                   className="text-xs text-red-700 underline shrink-0"
                 >
-                  Delete
+                  {t('common.delete')}
                 </button>
               </div>
             )
@@ -691,7 +684,7 @@ export default function CycleDetail() {
       {activeTab === 'audit' && (
         <div className="bg-white border border-border rounded-xl divide-y divide-border">
           {auditLogs.length === 0 && (
-            <p className="text-sm text-text-secondary p-4">No history yet.</p>
+            <p className="text-sm text-text-secondary p-4">{t('cycle.audit.empty')}</p>
           )}
           {auditLogs.map((log) => (
             <div key={log.id} className="px-4 py-3 space-y-1">
@@ -708,7 +701,7 @@ export default function CycleDetail() {
               )}
               {log.oldValues && (
                 <details className="text-xs">
-                  <summary className="text-text-secondary cursor-pointer">Old values</summary>
+                  <summary className="text-text-secondary cursor-pointer">{t('cycle.audit.oldValues')}</summary>
                   <pre className="mt-1 p-2 bg-[#F7F7F7] rounded overflow-x-auto">
                     {JSON.stringify(log.oldValues, null, 2)}
                   </pre>
@@ -716,7 +709,7 @@ export default function CycleDetail() {
               )}
               {log.newValues && (
                 <details className="text-xs">
-                  <summary className="text-text-secondary cursor-pointer">New values</summary>
+                  <summary className="text-text-secondary cursor-pointer">{t('cycle.audit.newValues')}</summary>
                   <pre className="mt-1 p-2 bg-[#F7F7F7] rounded overflow-x-auto">
                     {JSON.stringify(log.newValues, null, 2)}
                   </pre>
@@ -781,12 +774,24 @@ export default function CycleDetail() {
 
       <ConfirmDialog
         open={confirmDeletePayoutId !== null}
-        title="Delete payout"
-        message="Are you sure you want to delete this payout?"
+        title={t('cycle.payout.deleteTitle')}
+        message={t('cycle.payout.deleteMessage')}
         onCancel={() => setConfirmDeletePayoutId(null)}
         onConfirm={() => void handleDeletePayout()}
         danger
       />
+
+      {contributionDialogMember && contributionDialogRound !== null && (
+        <ContributionDialog
+          open={contributionDialogOpen}
+          cycle={cycle}
+          member={contributionDialogMember}
+          roundNumber={contributionDialogRound}
+          existingContribution={contributionDialogExisting}
+          onSave={handleContributionSave}
+          onCancel={closeContributionDialog}
+        />
+      )}
     </section>
   )
 }

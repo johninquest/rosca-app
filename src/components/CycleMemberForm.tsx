@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 
 export interface CycleMemberFormValues {
   name: string
@@ -10,6 +11,7 @@ export interface CycleMemberFormValues {
 interface CycleMemberFormProps {
   defaultValues?: Partial<CycleMemberFormValues>
   defaultAmount?: number
+  defaultJoinDate?: string
   submitLabel?: string
   onSubmit: (values: CycleMemberFormValues) => Promise<void> | void
 }
@@ -17,9 +19,11 @@ interface CycleMemberFormProps {
 export default function CycleMemberForm({
   defaultValues,
   defaultAmount,
-  submitLabel = 'Save',
+  defaultJoinDate,
+  submitLabel,
   onSubmit,
 }: CycleMemberFormProps) {
+  const { t } = useTranslation()
   const {
     register,
     handleSubmit,
@@ -28,47 +32,55 @@ export default function CycleMemberForm({
     defaultValues: {
       name: defaultValues?.name || '',
       phone: defaultValues?.phone || '',
-      joinDate: defaultValues?.joinDate || new Date().toISOString().slice(0, 10),
+      joinDate: defaultValues?.joinDate || defaultJoinDate || new Date().toISOString().slice(0, 10),
       contributionAmount: defaultValues?.contributionAmount ?? defaultAmount,
     },
   })
 
+  const finalSubmitLabel = submitLabel ?? t('memberForm.addMember')
+
   return (
     <form onSubmit={handleSubmit((values) => Promise.resolve(onSubmit(values)))} className="space-y-3">
       <div>
-        <label htmlFor="cm-name" className="block text-sm text-text-secondary mb-1">Name</label>
+        <label htmlFor="cm-name" className="block text-sm text-text-secondary mb-1">
+          {t('memberForm.name')}
+        </label>
         <input
           id="cm-name"
-          {...register('name', { required: 'Name is required' })}
+          {...register('name', { required: t('memberForm.nameRequired') })}
           className="w-full px-3 py-2.5 border border-border rounded-lg"
-          placeholder="Marie Ngo"
+          placeholder={t('memberForm.namePlaceholder')}
         />
         {errors.name && <p className="text-xs text-red-700 mt-1">{errors.name.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="cm-phone" className="block text-sm text-text-secondary mb-1">Phone (+237) <span className="text-text-secondary font-normal">(optional)</span></label>
+        <label htmlFor="cm-phone" className="block text-sm text-text-secondary mb-1">
+          {t('memberForm.phone')} <span className="text-text-secondary font-normal">{t('memberForm.phoneOptional')}</span>
+        </label>
         <input
           id="cm-phone"
           {...register('phone')}
           className="w-full px-3 py-2.5 border border-border rounded-lg"
-          placeholder="+237699000000"
+          placeholder={t('memberForm.phonePlaceholder')}
         />
       </div>
 
       <div>
-        <label htmlFor="cm-amount" className="block text-sm text-text-secondary mb-1">Contribution amount (XAF)</label>
+        <label htmlFor="cm-amount" className="block text-sm text-text-secondary mb-1">
+          {t('memberForm.amount')}
+        </label>
         <input
           id="cm-amount"
           type="number"
           min={1}
           {...register('contributionAmount', {
-            required: 'Contribution amount is required',
+            required: t('memberForm.amountRequired'),
             valueAsNumber: true,
-            min: { value: 1, message: 'Minimum is 1' },
+            min: { value: 1, message: t('memberForm.amountMin') },
           })}
           className="w-full px-3 py-2.5 border border-border rounded-lg"
-          placeholder="5000"
+          placeholder={t('memberForm.amountPlaceholder')}
         />
         {errors.contributionAmount && (
           <p className="text-xs text-red-700 mt-1">{errors.contributionAmount.message}</p>
@@ -76,8 +88,15 @@ export default function CycleMemberForm({
       </div>
 
       <div>
-        <label htmlFor="cm-join-date" className="block text-sm text-text-secondary mb-1">Join date</label>
-        <input id="cm-join-date" type="date" {...register('joinDate', { required: true })} className="w-full px-3 py-2.5 border border-border rounded-lg" />
+        <label htmlFor="cm-join-date" className="block text-sm text-text-secondary mb-1">
+          {t('memberForm.joinDate')}
+        </label>
+        <input
+          id="cm-join-date"
+          type="date"
+          {...register('joinDate', { required: true })}
+          className="w-full px-3 py-2.5 border border-border rounded-lg"
+        />
       </div>
 
       <button
@@ -85,7 +104,7 @@ export default function CycleMemberForm({
         disabled={isSubmitting}
         className="w-full py-2.5 rounded-lg bg-text-primary text-white disabled:opacity-50"
       >
-        {isSubmitting ? 'Saving...' : submitLabel}
+        {isSubmitting ? t('memberForm.saving') : finalSubmitLabel}
       </button>
     </form>
   )
