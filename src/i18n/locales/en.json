@@ -52,6 +52,7 @@
   "cycle.round.recordPayout": "Record payout",
   "cycle.round.beneficiary": "Beneficiary",
   "cycle.round.payout": "Payout",
+  "cycle.round.paidOn": "Paid on",
   "cycle.round.method": "Method",
   "cycle.round.noMembers": "No members yet. Add members to start tracking contributions.",
   "cycle.round.addMember": "+ Add member",

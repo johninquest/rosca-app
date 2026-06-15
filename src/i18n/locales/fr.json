@@ -52,6 +52,7 @@
   "cycle.round.recordPayout": "Enregistrer le paiement",
   "cycle.round.beneficiary": "Beneficiaire",
   "cycle.round.payout": "Paiement",
+  "cycle.round.paidOn": "Paye le",
   "cycle.round.method": "Methode",
   "cycle.round.noMembers": "Aucun membre pour le moment. Ajoutez des membres pour commencer a suivre les contributions.",
   "cycle.round.addMember": "+ Ajouter membre",

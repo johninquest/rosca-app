@@ -408,9 +408,16 @@ export default function CycleDetail() {
             const roundPayout = cyclePayouts.find((p) => p.roundNumber === roundNumber)
             const beneficiary = roundBeneficiary(roundNumber)
             const isClosed = cycle.closedRounds.includes(roundNumber)
+            const isPaid = Boolean(roundPayout)
+
+            const cardClass = isPaid
+              ? 'bg-teal-light border-teal-border'
+              : isClosed
+                ? 'bg-closed-bg border-closed-border'
+                : 'bg-white border-border'
 
             return (
-              <div key={roundNumber} className="bg-white border border-border rounded-xl">
+              <div key={roundNumber} className={`${cardClass} border rounded-xl`}>
                 <button
                   type="button"
                   onClick={() => toggleRound(roundNumber)}
@@ -479,11 +486,16 @@ export default function CycleDetail() {
                         {t('cycle.round.payout')}
                       </p>
                       {roundPayout ? (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-text-primary">
-                            {beneficiary?.name ?? t('cycle.payout.unknown')}
-                          </span>
-                          <span className="text-text-secondary">{formatAmount(roundPayout.amount)}</span>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-text-primary">
+                              {beneficiary?.name ?? t('cycle.payout.unknown')}
+                            </span>
+                            <span className="text-text-secondary">{formatAmount(roundPayout.amount)}</span>
+                          </div>
+                          <p className="text-xs text-text-secondary text-right">
+                            {t('cycle.round.paidOn')}: {roundPayout.date.toLocaleDateString()}
+                          </p>
                         </div>
                       ) : (
                         !isClosed && beneficiary && (
