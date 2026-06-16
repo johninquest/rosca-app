@@ -21,11 +21,20 @@ describe('todayISO', () => {
 })
 
 describe('formatDate', () => {
-  it('formats valid date string', () => {
-    expect(formatDate('2026-05-12')).toMatch(/2026/)
+  it('formats valid date as DD/MM/YYYY', () => {
+    // Use Date constructor with local time to avoid UTC timezone shift issues
+    expect(formatDate(new Date(2026, 4, 12))).toBe('12/05/2026')
+  })
+
+  it('formats a Date object as DD/MM/YYYY', () => {
+    expect(formatDate(new Date(2026, 0, 5))).toBe('05/01/2026')
   })
 
   it('returns N/A for empty value', () => {
     expect(formatDate(undefined)).toBe('N/A')
+  })
+
+  it('returns N/A for invalid date string', () => {
+    expect(formatDate('not-a-date')).toBe('N/A')
   })
 })

@@ -32,7 +32,7 @@ export function formatDate(value: Date | string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return 'N/A'
   return date.toLocaleDateString('fr-FR', {
     day: '2-digit',
-    month: 'short',
+    month: '2-digit',
     year: 'numeric',
   })
 }

@@ -5,10 +5,11 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ContributionDialog from '../components/ContributionDialog'
 import CycleForm, { type CycleFormValues } from '../components/CycleForm'
 import CycleMemberForm, { type CycleMemberFormValues } from '../components/CycleMemberForm'
+import PayoutDialog from '../components/PayoutDialog'
 import { pb } from '../services/pocketbase'
 import { useCycleStore } from '../stores/useCycleStore'
 import { exportCycleContributionsCSV, exportCycleContributionsPDF } from '../utils/export'
-import { formatAmount, todayISO } from '../utils/format'
+import { formatAmount, formatDate } from '../utils/format'
 import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
 import type { Contribution, ContributionMode, CycleMember, PaymentMethod } from '../types'
 
@@ -50,19 +51,18 @@ export default function CycleDetail() {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
   const [savingMemberKey, setSavingMemberKey] = useState<string | null>(null)
-  const [savingPayoutRound, setSavingPayoutRound] = useState<number | null>(null)
   const [closingRound, setClosingRound] = useState<number | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [confirmDeletePayoutId, setConfirmDeletePayoutId] = useState<string | null>(null)
   const [isDeletingCycle, setIsDeletingCycle] = useState(false)
-  const [payoutAmountByRound, setPayoutAmountByRound] = useState<Record<number, string>>({})
-  const [payoutDateByRound, setPayoutDateByRound] = useState<Record<number, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [editingCycle, setEditingCycle] = useState(false)
   const [contributionDialogOpen, setContributionDialogOpen] = useState(false)
   const [contributionDialogMember, setContributionDialogMember] = useState<CycleMember | null>(null)
   const [contributionDialogRound, setContributionDialogRound] = useState<number | null>(null)
   const [contributionDialogExisting, setContributionDialogExisting] = useState<Contribution | null>(null)
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false)
+  const [payoutDialogRound, setPayoutDialogRound] = useState<number | null>(null)
   const pendingToggleKeysRef = useRef<Set<string>>(new Set())
 
   const cycleMembersList = useMemo(
@@ -117,14 +117,38 @@ export default function CycleDetail() {
     return getRoundContributions(memberId, roundNumber)[0]
   }
 
-  const roundBeneficiary = (roundNumber: number) => {
-    if (cycle.payoutOrder.length === 0) return null
-    const idx = (roundNumber - 1) % cycle.payoutOrder.length
-    const memberId = cycle.payoutOrder[idx]
-    return cycleMembersList.find((m) => m.id === memberId) ?? null
+  const roundExpectedTotal = getRoundExpectedTotal(cycle.id)
+
+  const openPayoutDialog = (roundNumber: number) => {
+    setPayoutDialogRound(roundNumber)
+    setPayoutDialogOpen(true)
   }
 
-  const roundExpectedTotal = getRoundExpectedTotal(cycle.id)
+  const closePayoutDialog = () => {
+    setPayoutDialogOpen(false)
+    setPayoutDialogRound(null)
+  }
+
+  const handlePayoutSave = async (data: {
+    memberId: string
+    amount: number
+    date: Date
+  }) => {
+    if (payoutDialogRound === null) return
+    setError(null)
+    try {
+      await addPayout({
+        cycleId: cycle.id,
+        memberId: data.memberId,
+        amount: data.amount,
+        roundNumber: payoutDialogRound,
+        date: data.date,
+      })
+      closePayoutDialog()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record payout.')
+    }
+  }
 
   const openContributionDialog = (member: CycleMember, roundNumber: number, existing?: Contribution | null) => {
     setContributionDialogMember(member)
@@ -185,33 +209,6 @@ export default function CycleDetail() {
       setEditingCycle(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('cycleForm.updateError'))
-    }
-  }
-
-  const handlePayout = async (roundNumber: number, memberId: string, defaultAmount: number) => {
-    setError(null)
-    setSavingPayoutRound(roundNumber)
-
-    try {
-      const amountValue = payoutAmountByRound[roundNumber] || String(defaultAmount)
-      const parsedAmount = Number(amountValue)
-      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-        throw new Error('Payout amount must be greater than zero.')
-      }
-
-      const dateValue = payoutDateByRound[roundNumber] || todayISO()
-
-      await addPayout({
-        cycleId: cycle.id,
-        memberId,
-        amount: parsedAmount,
-        roundNumber,
-        date: new Date(dateValue),
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record payout.')
-    } finally {
-      setSavingPayoutRound(null)
     }
   }
 
@@ -406,7 +403,6 @@ export default function CycleDetail() {
             const uniqueRoundContributions = Array.from(contributionsByMember.values())
             const roundCollected = uniqueRoundContributions.reduce((sum, item) => sum + item.amount, 0)
             const roundPayout = cyclePayouts.find((p) => p.roundNumber === roundNumber)
-            const beneficiary = roundBeneficiary(roundNumber)
             const isClosed = cycle.closedRounds.includes(roundNumber)
             const isPaid = Boolean(roundPayout)
 
@@ -453,7 +449,7 @@ export default function CycleDetail() {
                               <div className="text-xs text-text-secondary space-y-1">
                                 <div className="flex items-center justify-between">
                                   <span>{t('cycle.round.method')}: {t(`payment.${contribution.method}`)}</span>
-                                  <span>{contribution.date.toLocaleDateString()}</span>
+                                  <span>{formatDate(contribution.date)}</span>
                                 </div>
                                 {!isClosed && (
                                   <button
@@ -489,54 +485,23 @@ export default function CycleDetail() {
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-text-primary">
-                              {beneficiary?.name ?? t('cycle.payout.unknown')}
+                              {cycleMembersList.find((m) => m.id === roundPayout.memberId)?.name ?? t('cycle.payout.unknown')}
                             </span>
                             <span className="text-text-secondary">{formatAmount(roundPayout.amount)}</span>
                           </div>
                           <p className="text-xs text-text-secondary text-right">
-                            {t('cycle.round.paidOn')}: {roundPayout.date.toLocaleDateString()}
+                            {t('cycle.round.paidOn')}: {formatDate(roundPayout.date)}
                           </p>
                         </div>
                       ) : (
-                        !isClosed && beneficiary && (
-                          <div className="space-y-2">
-                            <p className="text-sm text-text-secondary">
-                              {t('cycle.round.beneficiary')}: {beneficiary.name}
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <input
-                                type="number"
-                                min={1}
-                                value={payoutAmountByRound[roundNumber] ?? String(roundExpectedTotal)}
-                                onChange={(event) => {
-                                  setPayoutAmountByRound((prev) => ({
-                                    ...prev,
-                                    [roundNumber]: event.target.value,
-                                  }))
-                                }}
-                                className="px-3 py-2 border border-border rounded-lg text-sm"
-                              />
-                              <input
-                                type="date"
-                                value={payoutDateByRound[roundNumber] ?? todayISO()}
-                                onChange={(event) => {
-                                  setPayoutDateByRound((prev) => ({
-                                    ...prev,
-                                    [roundNumber]: event.target.value,
-                                  }))
-                                }}
-                                className="px-3 py-2 border border-border rounded-lg text-sm"
-                              />
-                              <button
-                                type="button"
-                                disabled={savingPayoutRound === roundNumber}
-                                onClick={() => void handlePayout(roundNumber, beneficiary.id, roundExpectedTotal)}
-                                className="px-3 py-2 rounded-lg border border-border text-sm text-text-primary disabled:opacity-50"
-                              >
-                                {t('cycle.round.recordPayout')}
-                              </button>
-                            </div>
-                          </div>
+                        !isClosed && (
+                          <button
+                            type="button"
+                            onClick={() => openPayoutDialog(roundNumber)}
+                            className="w-full py-2 rounded-lg bg-teal-light border border-teal-border text-sm text-text-primary"
+                          >
+                            {t('cycle.round.recordPayout')}
+                          </button>
                         )
                       )}
 
@@ -677,7 +642,7 @@ export default function CycleDetail() {
                   <p className="text-xs text-text-secondary">
                     {beneficiary?.name ?? t('cycle.payout.unknown')} — {formatAmount(payout.amount)}
                   </p>
-                  <p className="text-xs text-text-secondary">{payout.date.toLocaleDateString()}</p>
+                  <p className="text-xs text-text-secondary">{formatDate(payout.date)}</p>
                 </div>
                 <button
                   type="button"
@@ -705,7 +670,7 @@ export default function CycleDetail() {
                   {log.action} {log.tableName.replace('_', ' ')}
                 </span>
                 <span className="text-xs text-text-secondary">
-                  {log.performedAt.toLocaleDateString()}
+                  {formatDate(log.performedAt)}
                 </span>
               </div>
               {log.notes && (
@@ -802,6 +767,18 @@ export default function CycleDetail() {
           existingContribution={contributionDialogExisting}
           onSave={handleContributionSave}
           onCancel={closeContributionDialog}
+        />
+      )}
+
+      {payoutDialogRound !== null && (
+        <PayoutDialog
+          open={payoutDialogOpen}
+          cycle={cycle}
+          members={cycleMembersList}
+          roundNumber={payoutDialogRound}
+          defaultAmount={roundExpectedTotal}
+          onSave={handlePayoutSave}
+          onCancel={closePayoutDialog}
         />
       )}
     </section>
