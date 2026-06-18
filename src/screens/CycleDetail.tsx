@@ -11,6 +11,7 @@ import { useCycleStore } from '../stores/useCycleStore'
 import { exportCycleContributionsCSV, exportCycleContributionsPDF } from '../utils/export'
 import { formatAmount, formatDate } from '../utils/format'
 import { buildRoscaWhatsAppUrl } from '../utils/whatsapp'
+import { getRoundRecipient } from '../utils/flexCalculations'
 import type { Contribution, ContributionMode, CycleMember, PaymentMethod } from '../types'
 
 export default function CycleDetail() {
@@ -27,6 +28,7 @@ export default function CycleDetail() {
     getCycleTotal,
     getMemberNetPosition,
     getRoundExpectedTotal,
+    getMemberExpectedContribution,
     addCycleMember,
     updateCycleMember,
     deleteCycleMember,
@@ -117,7 +119,25 @@ export default function CycleDetail() {
     return getRoundContributions(memberId, roundNumber)[0]
   }
 
-  const roundExpectedTotal = getRoundExpectedTotal(cycle.id)
+  const getRoundExpected = (roundNumber: number) => {
+    return getRoundExpectedTotal(cycle.id, roundNumber)
+  }
+
+  const getSuggestedBeneficiary = (roundNumber: number): string | null => {
+    // Check if there's already a payout for this round
+    const existingPayout = cyclePayouts.find(p => p.roundNumber === roundNumber)
+    if (existingPayout) {
+      return existingPayout.memberId
+    }
+    
+    // Otherwise use the payout order
+    const index = roundNumber - 1
+    if (index >= 0 && index < cycle.payoutOrder.length) {
+      return cycle.payoutOrder[index]
+    }
+    
+    return null
+  }
 
   const openPayoutDialog = (roundNumber: number) => {
     setPayoutDialogRound(roundNumber)
@@ -405,6 +425,7 @@ export default function CycleDetail() {
             const roundPayout = cyclePayouts.find((p) => p.roundNumber === roundNumber)
             const isClosed = cycle.closedRounds.includes(roundNumber)
             const isPaid = Boolean(roundPayout)
+            const roundExpected = getRoundExpected(roundNumber)
 
             const cardClass = isClosed
               ? 'bg-closed-bg border-closed-border'
@@ -430,19 +451,40 @@ export default function CycleDetail() {
                 {isRoundExpanded(roundNumber) && (
                   <div className="border-t border-border p-4 space-y-3">
                     <p className="text-sm text-text-secondary">
-                      {t('cycle.round.collected')}: {formatAmount(roundCollected)} / {formatAmount(roundExpectedTotal)}
+                      {t('cycle.round.collected')}: {formatAmount(roundCollected)} / {formatAmount(roundExpected)}
                     </p>
 
                     <div className="space-y-2">
                       {cycleMembersList.map((member) => {
                         const contribution = getRoundContribution(member.id, roundNumber)
                         const hasContribution = Boolean(contribution)
+                        
+                        // Get expected amount for flex mode
+                        const expectedInfo = cycle.contributionMode === 'flex'
+                          ? getMemberExpectedContribution(cycle.id, member.id, roundNumber)
+                          : null
 
                         return (
                           <div key={member.id} className="border border-border rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between gap-3 text-sm">
                               <span className="text-text-primary font-medium">{member.name}</span>
-                              <span className="text-text-secondary">{formatAmount(member.contributionAmount)}</span>
+                              <div className="text-right">
+                                {expectedInfo && (
+                                  <div className="text-xs text-text-secondary">
+                                    {t('cycle.round.expected')}: {formatAmount(expectedInfo.amount)}
+                                    {expectedInfo.isPayback && (
+                                      <span className="ml-1 text-amber-600">
+                                        ({t('cycle.round.payback')})
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                <span className="text-text-secondary">
+                                  {hasContribution && contribution
+                                    ? formatAmount(contribution.amount)
+                                    : '—'}
+                                </span>
+                              </div>
                             </div>
 
                             {hasContribution && contribution && (
@@ -581,6 +623,7 @@ export default function CycleDetail() {
                       }}
                       defaultAmount={cycle.fixedAmountPerPerson}
                       submitLabel={t('memberForm.update')}
+                      lockContributionAmount={cycle.closedRounds.length > 0}
                       onSubmit={(values) => void onUpdateMember(member.id, values)}
                     />
                     <button
@@ -765,6 +808,11 @@ export default function CycleDetail() {
           member={contributionDialogMember}
           roundNumber={contributionDialogRound}
           existingContribution={contributionDialogExisting}
+          expectedAmount={
+            cycle.contributionMode === 'flex'
+              ? getMemberExpectedContribution(cycle.id, contributionDialogMember.id, contributionDialogRound)
+              : null
+          }
           onSave={handleContributionSave}
           onCancel={closeContributionDialog}
         />
@@ -776,7 +824,8 @@ export default function CycleDetail() {
           cycle={cycle}
           members={cycleMembersList}
           roundNumber={payoutDialogRound}
-          defaultAmount={roundExpectedTotal}
+          defaultAmount={getRoundExpected(payoutDialogRound)}
+          suggestedBeneficiaryId={getSuggestedBeneficiary(payoutDialogRound)}
           onSave={handlePayoutSave}
           onCancel={closePayoutDialog}
         />

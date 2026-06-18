@@ -13,6 +13,7 @@ interface CycleMemberFormProps {
   defaultAmount?: number
   defaultJoinDate?: string
   submitLabel?: string
+  lockContributionAmount?: boolean
   onSubmit: (values: CycleMemberFormValues) => Promise<void> | void
 }
 
@@ -21,6 +22,7 @@ export default function CycleMemberForm({
   defaultAmount,
   defaultJoinDate,
   submitLabel,
+  lockContributionAmount = false,
   onSubmit,
 }: CycleMemberFormProps) {
   const { t } = useTranslation()
@@ -79,9 +81,15 @@ export default function CycleMemberForm({
             valueAsNumber: true,
             min: { value: 1, message: t('memberForm.amountMin') },
           })}
-          className="w-full px-3 py-2.5 border border-border rounded-lg"
+          disabled={lockContributionAmount}
+          className="w-full px-3 py-2.5 border border-border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
           placeholder={t('memberForm.amountPlaceholder')}
         />
+        {lockContributionAmount && (
+          <p className="text-xs text-text-secondary mt-1 italic">
+            {t('memberForm.amountLockedHint')}
+          </p>
+        )}
         {errors.contributionAmount && (
           <p className="text-xs text-red-700 mt-1">{errors.contributionAmount.message}</p>
         )}

@@ -3,12 +3,19 @@ import { useTranslation } from 'react-i18next'
 import type { Contribution, Cycle, CycleMember, PaymentMethod } from '../types'
 import { todayISO } from '../utils/format'
 
+interface ExpectedAmountInfo {
+  amount: number
+  isPayback: boolean
+  recipientName?: string
+}
+
 interface ContributionDialogProps {
   open: boolean
   cycle: Cycle
   member: CycleMember
   roundNumber: number
   existingContribution?: Contribution | null
+  expectedAmount?: ExpectedAmountInfo | null
   onSave: (data: {
     amount: number
     method: PaymentMethod
@@ -24,15 +31,22 @@ export default function ContributionDialog({
   member,
   roundNumber,
   existingContribution,
+  expectedAmount,
   onSave,
   onCancel,
 }: ContributionDialogProps) {
   const { t } = useTranslation()
   const isEditMode = Boolean(existingContribution)
+  const isFlexMode = cycle.contributionMode === 'flex'
 
-  const [amount, setAmount] = useState<string>(
-    existingContribution ? String(existingContribution.amount) : String(member.contributionAmount)
-  )
+  // Determine initial amount
+  const getInitialAmount = () => {
+    if (existingContribution) return String(existingContribution.amount)
+    if (isFlexMode && expectedAmount) return String(expectedAmount.amount)
+    return String(member.contributionAmount)
+  }
+
+  const [amount, setAmount] = useState<string>(getInitialAmount())
   const [method, setMethod] = useState<PaymentMethod>(
     existingContribution ? existingContribution.method : cycle.defaultPaymentMethod
   )
@@ -70,6 +84,18 @@ export default function ContributionDialog({
     }
   }
 
+  // Determine hint text for flex mode
+  const getFlexHint = () => {
+    if (!isFlexMode || !expectedAmount) return null
+    
+    if (expectedAmount.isPayback) {
+      return t('contribution.paybackHint', { recipientName: expectedAmount.recipientName || '' })
+    }
+    return t('contribution.normalHint')
+  }
+
+  const flexHint = getFlexHint()
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 space-y-4">
@@ -91,6 +117,11 @@ export default function ContributionDialog({
 
         <div className="space-y-3">
           <div>
+            {flexHint && (
+              <p className="text-xs text-text-secondary mb-1 italic">
+                {flexHint}
+              </p>
+            )}
             <label htmlFor="contribution-amount" className="block text-sm text-text-secondary mb-1">
               {t('contribution.amount')}
             </label>
@@ -100,7 +131,8 @@ export default function ContributionDialog({
               min={1}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-lg"
+              disabled={isFlexMode && !isEditMode}
+              className="w-full px-3 py-2.5 border border-border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
               placeholder="5000"
             />
           </div>

@@ -2,6 +2,12 @@
 import { create } from 'zustand'
 import { pb } from '../services/pocketbase'
 import { logAuditEvent } from '../services/audit'
+import {
+  getFlexRoundExpectedTotal,
+  getMemberExpectedContribution as calcMemberExpected,
+  getRoundRecipient,
+  type FlexContributionInfo,
+} from '../utils/flexCalculations'
 import type {
   AuditLog,
   Contribution,
@@ -148,7 +154,12 @@ interface CycleState {
   getMemberTotal: (memberId: string, cycleId: string) => number
   getCycleTotal: (cycleId: string) => number
   getMemberNetPosition: (memberId: string, cycleId: string) => number
-  getRoundExpectedTotal: (cycleId: string) => number
+  getRoundExpectedTotal: (cycleId: string, roundNumber: number) => number
+  getMemberExpectedContribution: (
+    cycleId: string,
+    memberId: string,
+    roundNumber: number
+  ) => FlexContributionInfo | null
 }
 
 function softDeleteFilter(userId: string | undefined): string {
@@ -636,11 +647,43 @@ export const useCycleStore = create<CycleState>((set, get) => ({
     return contributed - received
   },
 
-  getRoundExpectedTotal: (cycleId) => {
-    return get()
-      .cycleMembers.filter(
-        (m) => m.cycleId === cycleId && !m.deletedAt,
-      )
-      .reduce((sum, m) => sum + m.contributionAmount, 0)
+  getRoundExpectedTotal: (cycleId, roundNumber) => {
+    const cycle = get().cycles.find((c) => c.id === cycleId)
+    if (!cycle) return 0
+
+    const members = get().cycleMembers.filter(
+      (m) => m.cycleId === cycleId && !m.deletedAt,
+    )
+
+    // For fixed mode, sum all member contributions
+    if (cycle.contributionMode === 'fixed') {
+      return members.reduce((sum, m) => sum + m.contributionAmount, 0)
+    }
+
+    // For flex mode, use the flex calculation
+    const payouts = get().payouts.filter((p) => p.cycleId === cycleId && !p.deletedAt)
+    const recipientId = getRoundRecipient(cycle, payouts, roundNumber)
+    
+    if (!recipientId) {
+      // If we can't determine the recipient, fall back to sum of all contributions
+      return members.reduce((sum, m) => sum + m.contributionAmount, 0)
+    }
+
+    return getFlexRoundExpectedTotal(cycle, members, payouts, recipientId)
+  },
+
+  getMemberExpectedContribution: (cycleId, memberId, roundNumber) => {
+    const cycle = get().cycles.find((c) => c.id === cycleId)
+    if (!cycle || cycle.contributionMode !== 'flex') return null
+
+    const members = get().cycleMembers.filter(
+      (m) => m.cycleId === cycleId && !m.deletedAt,
+    )
+    const payouts = get().payouts.filter((p) => p.cycleId === cycleId && !p.deletedAt)
+    const recipientId = getRoundRecipient(cycle, payouts, roundNumber)
+
+    if (!recipientId) return null
+
+    return calcMemberExpected(cycle, members, payouts, memberId, recipientId)
   },
 }))

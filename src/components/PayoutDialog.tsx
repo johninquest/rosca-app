@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Cycle, CycleMember } from '../types'
 import { todayISO } from '../utils/format'
@@ -9,6 +9,7 @@ interface PayoutDialogProps {
   members: CycleMember[]
   roundNumber: number
   defaultAmount: number
+  suggestedBeneficiaryId?: string | null
   onSave: (data: {
     memberId: string
     amount: number
@@ -23,6 +24,7 @@ export default function PayoutDialog({
   members,
   roundNumber,
   defaultAmount,
+  suggestedBeneficiaryId,
   onSave,
   onCancel,
 }: PayoutDialogProps) {
@@ -33,6 +35,15 @@ export default function PayoutDialog({
   const [date, setDate] = useState<string>(todayISO())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Auto-select suggested beneficiary when dialog opens
+  useEffect(() => {
+    if (open && suggestedBeneficiaryId) {
+      setSelectedMemberId(suggestedBeneficiaryId)
+    } else if (open) {
+      setSelectedMemberId('')
+    }
+  }, [open, suggestedBeneficiaryId])
 
   if (!open) return null
 
