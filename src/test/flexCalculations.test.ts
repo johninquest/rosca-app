@@ -362,4 +362,177 @@ describe('flexCalculations', () => {
       expect(result).toBe('member-3')
     })
   })
+
+  describe('mid-cycle member additions', () => {
+    it('new members added after Round 1 should pay their own rate (not payback)', () => {
+      // Scenario: A=15000, B=10000, C=10000. Round 1 closed with A receiving.
+      // Then D=10000 and E=10000 are added.
+      // Round 2: B is recipient.
+      // A should pay 10000 (payback at B's rate)
+      // C should pay 10000 (own rate, not yet received)
+      // D should pay 10000 (own rate, new member, not yet received)
+      // E should pay 10000 (own rate, new member, not yet received)
+      const cycle = createCycle({
+        closedRounds: [1],
+        payoutOrder: ['A', 'B', 'C', 'D', 'E'],
+      })
+      const members = [
+        createMember({ id: 'A', name: 'A', contributionAmount: 15000 }),
+        createMember({ id: 'B', name: 'B', contributionAmount: 10000 }),
+        createMember({ id: 'C', name: 'C', contributionAmount: 10000 }),
+        createMember({ id: 'D', name: 'D', contributionAmount: 10000 }),
+        createMember({ id: 'E', name: 'E', contributionAmount: 10000 }),
+      ]
+      const payouts = [createPayout({ memberId: 'A', roundNumber: 1 })]
+
+      const result = getExpectedContributions(cycle, members, payouts, 'B')
+
+      // A already received payout in Round 1, so pays B's rate (10000) as payback
+      expect(result.find((c) => c.memberId === 'A')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: true,
+      })
+
+      // C has NOT received a payout, so pays own rate (10000)
+      expect(result.find((c) => c.memberId === 'C')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: false,
+      })
+
+      // D is a new member, has NOT received a payout, so pays own rate (10000)
+      expect(result.find((c) => c.memberId === 'D')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: false,
+      })
+
+      // E is a new member, has NOT received a payout, so pays own rate (10000)
+      expect(result.find((c) => c.memberId === 'E')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: false,
+      })
+
+      // Total: A(10000) + C(10000) + D(10000) + E(10000) = 40000
+      const total = result.reduce((sum, c) => sum + c.expectedAmount, 0)
+      expect(total).toBe(40000)
+    })
+
+    it('new members should NOT be treated as payback even if added after a closed round', () => {
+      // Edge case: ensure new members are never incorrectly classified as payback
+      const cycle = createCycle({
+        closedRounds: [1, 2],
+        payoutOrder: ['A', 'B', 'C', 'D'],
+      })
+      const members = [
+        createMember({ id: 'A', name: 'A', contributionAmount: 15000 }),
+        createMember({ id: 'B', name: 'B', contributionAmount: 10000 }),
+        createMember({ id: 'C', name: 'C', contributionAmount: 10000 }),
+        createMember({ id: 'D', name: 'D', contributionAmount: 10000 }),
+      ]
+      const payouts = [
+        createPayout({ memberId: 'A', roundNumber: 1 }),
+        createPayout({ memberId: 'B', roundNumber: 2 }),
+      ]
+
+      // Round 3: C is recipient
+      const result = getExpectedContributions(cycle, members, payouts, 'C')
+
+      // A already received, pays C's rate (10000) as payback
+      expect(result.find((c) => c.memberId === 'A')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: true,
+      })
+
+      // B already received, pays C's rate (10000) as payback
+      expect(result.find((c) => c.memberId === 'B')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: true,
+      })
+
+      // D is a new member, has NOT received a payout, so pays own rate (10000)
+      expect(result.find((c) => c.memberId === 'D')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: false,
+      })
+    })
+
+    it('should handle soft-deleted payouts correctly (not count as received)', () => {
+      const cycle = createCycle({
+        closedRounds: [1],
+        payoutOrder: ['A', 'B', 'C'],
+      })
+      const members = [
+        createMember({ id: 'A', name: 'A', contributionAmount: 15000 }),
+        createMember({ id: 'B', name: 'B', contributionAmount: 10000 }),
+        createMember({ id: 'C', name: 'C', contributionAmount: 10000 }),
+      ]
+      // Payout for A exists but is soft-deleted
+      const payouts = [
+        createPayout({ memberId: 'A', roundNumber: 1, deletedAt: new Date() }),
+      ]
+
+      // Round 2: B is recipient
+      const result = getExpectedContributions(cycle, members, payouts, 'B')
+
+      // A's payout was soft-deleted, so A should NOT be treated as payback
+      expect(result.find((c) => c.memberId === 'A')).toMatchObject({
+        expectedAmount: 15000,
+        isPayback: false,
+      })
+
+      // C has not received, pays own rate
+      expect(result.find((c) => c.memberId === 'C')).toMatchObject({
+        expectedAmount: 10000,
+        isPayback: false,
+      })
+    })
+
+    it('should correctly calculate totals with mixed old and new members', () => {
+      const cycle = createCycle({
+        closedRounds: [1],
+        payoutOrder: ['A', 'B', 'C', 'D', 'E'],
+      })
+      const members = [
+        createMember({ id: 'A', name: 'A', contributionAmount: 15000 }),
+        createMember({ id: 'B', name: 'B', contributionAmount: 10000 }),
+        createMember({ id: 'C', name: 'C', contributionAmount: 10000 }),
+        createMember({ id: 'D', name: 'D', contributionAmount: 10000 }),
+        createMember({ id: 'E', name: 'E', contributionAmount: 10000 }),
+      ]
+      const payouts = [createPayout({ memberId: 'A', roundNumber: 1 })]
+
+      // Round 2: B is recipient
+      const total = getFlexRoundExpectedTotal(cycle, members, payouts, 'B')
+
+      // A(10000 payback) + C(10000 own) + D(10000 own) + E(10000 own) = 40000
+      expect(total).toBe(40000)
+    })
+
+    it('new member with different contribution amount should pay their own rate', () => {
+      // New member joins with a higher contribution amount
+      const cycle = createCycle({
+        closedRounds: [1],
+        payoutOrder: ['A', 'B', 'C', 'D'],
+      })
+      const members = [
+        createMember({ id: 'A', name: 'A', contributionAmount: 15000 }),
+        createMember({ id: 'B', name: 'B', contributionAmount: 10000 }),
+        createMember({ id: 'C', name: 'C', contributionAmount: 10000 }),
+        createMember({ id: 'D', name: 'D', contributionAmount: 20000 }),
+      ]
+      const payouts = [createPayout({ memberId: 'A', roundNumber: 1 })]
+
+      // Round 2: B is recipient
+      const result = getExpectedContributions(cycle, members, payouts, 'B')
+
+      // D is new, pays own rate (20000), NOT payback
+      expect(result.find((c) => c.memberId === 'D')).toMatchObject({
+        expectedAmount: 20000,
+        isPayback: false,
+      })
+
+      // Total: A(10000 payback at B's rate) + C(10000 own) + D(20000 own) = 40000
+      const total = result.reduce((sum, c) => sum + c.expectedAmount, 0)
+      expect(total).toBe(40000)
+    })
+  })
 })

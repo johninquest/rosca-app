@@ -796,6 +796,7 @@ export default function CycleDetail() {
           open={payoutDialogOpen}
           cycle={cycle}
           members={cycleMembersList}
+          payouts={cyclePayouts}
           roundNumber={payoutDialogRound}
           defaultAmount={getRoundExpected(payoutDialogRound)}
           suggestedBeneficiaryId={getSuggestedBeneficiary(payoutDialogRound)}

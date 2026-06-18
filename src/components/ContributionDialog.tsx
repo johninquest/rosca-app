@@ -131,10 +131,14 @@ export default function ContributionDialog({
               min={1}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              disabled={isFlexMode && !isEditMode}
-              className="w-full px-3 py-2.5 border border-border rounded-lg disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2.5 border border-border rounded-lg"
               placeholder="5000"
             />
+            {isFlexMode && expectedAmount && amount !== String(expectedAmount.amount) && (
+              <p className="text-xs text-amber-600 mt-1">
+                {t('contribution.flexOverrideWarning')}
+              </p>
+            )}
           </div>
 
           <div>

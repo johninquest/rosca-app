@@ -36,7 +36,8 @@ export function getExpectedContributions(
   // (payouts whose roundNumber is in cycle.closedRounds)
   const completedRecipients = new Set<string>()
   payouts.forEach((payout) => {
-    if (cycle.closedRounds.includes(payout.roundNumber)) {
+    if (payout.deletedAt) return
+    if (cycle.closedRounds.includes(Number(payout.roundNumber))) {
       completedRecipients.add(payout.memberId)
     }
   })
@@ -44,7 +45,7 @@ export function getExpectedContributions(
   // Find the current recipient to get their contribution amount
   const currentRecipient = members.find((m) => m.id === currentRecipientId)
   if (!currentRecipient) {
-    console.warn(`Current recipient ${currentRecipientId} not found in members list`)
+    console.warn(`[flexCalc] Current recipient ${currentRecipientId} not found in members list`)
     return []
   }
 

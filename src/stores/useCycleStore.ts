@@ -104,7 +104,7 @@ export function mapPayout(r: RecordModel): Payout {
     cycleId: r.cycleId,
     memberId: r.memberId,
     amount: r.amount,
-    roundNumber: r.roundNumber,
+    roundNumber: Number(r.roundNumber),
     date: new Date(r.date),
     owner: typeof r.owner === 'string' ? r.owner : undefined,
     deletedAt: r.deletedAt ? new Date(r.deletedAt) : undefined,
@@ -504,6 +504,17 @@ export const useCycleStore = create<CycleState>((set, get) => ({
   },
 
   addPayout: async (data) => {
+    // Check for duplicate payout - a member can only receive one payout per cycle
+    const existingPayout = get().payouts.find(
+      (p) => p.cycleId === data.cycleId 
+        && p.memberId === data.memberId 
+        && !p.deletedAt
+    )
+    
+    if (existingPayout) {
+      throw new Error('This member has already received a payout in this cycle.')
+    }
+
     const record = await pb.collection('rosca_payouts').create({
       cycleId: data.cycleId,
       memberId: data.memberId,

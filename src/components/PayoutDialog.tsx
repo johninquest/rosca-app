@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Cycle, CycleMember } from '../types'
+import type { Cycle, CycleMember, Payout } from '../types'
 import { todayISO } from '../utils/format'
 
 interface PayoutDialogProps {
   open: boolean
   cycle: Cycle
   members: CycleMember[]
+  payouts: Payout[]
   roundNumber: number
   defaultAmount: number
   suggestedBeneficiaryId?: string | null
@@ -22,6 +23,7 @@ export default function PayoutDialog({
   open,
   cycle,
   members,
+  payouts,
   roundNumber,
   defaultAmount,
   suggestedBeneficiaryId,
@@ -29,6 +31,11 @@ export default function PayoutDialog({
   onCancel,
 }: PayoutDialogProps) {
   const { t } = useTranslation()
+
+  // Filter out members who have already received a payout
+  const availableMembers = members.filter(
+    (member) => !payouts.some((p) => p.memberId === member.id && !p.deletedAt)
+  )
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>('')
   const [amount, setAmount] = useState<string>(String(defaultAmount))
@@ -99,19 +106,25 @@ export default function PayoutDialog({
             <label htmlFor="payout-member" className="block text-sm text-text-secondary mb-1">
               {t('payout.selectBeneficiary')}
             </label>
-            <select
-              id="payout-member"
-              value={selectedMemberId}
-              onChange={(e) => setSelectedMemberId(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-lg bg-white"
-            >
-              <option value="">{t('payout.selectBeneficiary')}</option>
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                </option>
-              ))}
-            </select>
+            {availableMembers.length === 0 ? (
+              <p className="text-sm text-text-secondary italic">
+                {t('payout.allMembersPaid')}
+              </p>
+            ) : (
+              <select
+                id="payout-member"
+                value={selectedMemberId}
+                onChange={(e) => setSelectedMemberId(e.target.value)}
+                className="w-full px-3 py-2.5 border border-border rounded-lg bg-white"
+              >
+                <option value="">{t('payout.selectBeneficiary')}</option>
+                {availableMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
