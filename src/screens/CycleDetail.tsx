@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useParams } from 'wouter'
+import AuditLogEntry from '../components/AuditLogEntry'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ContributionDialog from '../components/ContributionDialog'
 import CycleForm, { type CycleFormValues } from '../components/CycleForm'
@@ -702,40 +703,12 @@ export default function CycleDetail() {
 
       {/* Audit Tab */}
       {activeTab === 'audit' && (
-        <div className="bg-white border border-border rounded-xl divide-y divide-border">
+        <div className="bg-white border border-border rounded-xl">
           {auditLogs.length === 0 && (
             <p className="text-sm text-text-secondary p-4">{t('cycle.audit.empty')}</p>
           )}
           {auditLogs.map((log) => (
-            <div key={log.id} className="px-4 py-3 space-y-1">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-text-primary capitalize">
-                  {log.action} {log.tableName.replace('_', ' ')}
-                </span>
-                <span className="text-xs text-text-secondary">
-                  {formatDate(log.performedAt)}
-                </span>
-              </div>
-              {log.notes && (
-                <p className="text-xs text-text-secondary">{log.notes}</p>
-              )}
-              {log.oldValues && (
-                <details className="text-xs">
-                  <summary className="text-text-secondary cursor-pointer">{t('cycle.audit.oldValues')}</summary>
-                  <pre className="mt-1 p-2 bg-[#F7F7F7] rounded overflow-x-auto">
-                    {JSON.stringify(log.oldValues, null, 2)}
-                  </pre>
-                </details>
-              )}
-              {log.newValues && (
-                <details className="text-xs">
-                  <summary className="text-text-secondary cursor-pointer">{t('cycle.audit.newValues')}</summary>
-                  <pre className="mt-1 p-2 bg-[#F7F7F7] rounded overflow-x-auto">
-                    {JSON.stringify(log.newValues, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </div>
+            <AuditLogEntry key={log.id} log={log} members={cycleMembersList} />
           ))}
         </div>
       )}
