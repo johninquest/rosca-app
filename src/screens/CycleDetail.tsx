@@ -428,6 +428,14 @@ export default function CycleDetail() {
             const isPaid = Boolean(roundPayout)
             const roundExpected = getRoundExpected(roundNumber)
 
+            // Check if all required contributions are recorded for this round
+            const recipientId = getRoundRecipient(cycle, cyclePayouts, roundNumber)
+            const allContributionsRecorded = cycleMembersList.every((member) => {
+              if (member.id === recipientId) return true // recipient doesn't contribute
+              if (member.deletedAt) return true
+              return Boolean(getRoundContribution(member.id, roundNumber))
+            })
+
             const cardClass = isClosed
               ? 'bg-closed-bg border-closed-border'
               : isPaid
@@ -460,10 +468,10 @@ export default function CycleDetail() {
                         const contribution = getRoundContribution(member.id, roundNumber)
                         const hasContribution = Boolean(contribution)
                         
-                        // Get expected amount for flex mode
+                        // Get expected amount based on contribution mode
                         const expectedInfo = cycle.contributionMode === 'flex'
                           ? getMemberExpectedContribution(cycle.id, member.id, roundNumber)
-                          : null
+                          : { expectedAmount: member.contributionAmount, isPayback: false }
 
                         return (
                           <div key={member.id} className="border border-border rounded-lg p-3 space-y-2">
@@ -472,7 +480,7 @@ export default function CycleDetail() {
                               <div className="text-right">
                                 {expectedInfo && (
                                   <div className="text-xs text-text-secondary">
-                                    {t('cycle.round.expected')}: {formatAmount(expectedInfo.amount)}
+                                    {t('cycle.round.expected')}: {formatAmount(expectedInfo.expectedAmount)}
                                     {expectedInfo.isPayback && (
                                       <span className="ml-1 text-amber-600">
                                         ({t('cycle.round.payback')})
@@ -540,8 +548,9 @@ export default function CycleDetail() {
                         !isClosed && (
                           <button
                             type="button"
+                            disabled={!allContributionsRecorded}
                             onClick={() => openPayoutDialog(roundNumber)}
-                            className="w-full py-2 rounded-lg bg-teal-light border border-teal-border text-sm text-text-primary"
+                            className="w-full py-2 rounded-lg bg-teal-light border border-teal-border text-sm text-text-primary disabled:opacity-50"
                           >
                             {t('cycle.round.recordPayout')}
                           </button>

@@ -4,7 +4,7 @@ import type { Contribution, Cycle, CycleMember, PaymentMethod } from '../types'
 import { todayISO } from '../utils/format'
 
 interface ExpectedAmountInfo {
-  amount: number
+  expectedAmount: number
   isPayback: boolean
   recipientName?: string
 }
@@ -42,7 +42,7 @@ export default function ContributionDialog({
   // Determine initial amount
   const getInitialAmount = () => {
     if (existingContribution) return String(existingContribution.amount)
-    if (isFlexMode && expectedAmount) return String(expectedAmount.amount)
+    if (isFlexMode && expectedAmount) return String(expectedAmount.expectedAmount)
     return String(member.contributionAmount)
   }
 
@@ -134,7 +134,7 @@ export default function ContributionDialog({
               className="w-full px-3 py-2.5 border border-border rounded-lg"
               placeholder="5000"
             />
-            {isFlexMode && expectedAmount && amount !== String(expectedAmount.amount) && (
+            {isFlexMode && expectedAmount && amount !== String(expectedAmount.expectedAmount) && (
               <p className="text-xs text-amber-600 mt-1">
                 {t('contribution.flexOverrideWarning')}
               </p>
